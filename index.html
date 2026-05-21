@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WildChat Agency Explorer</title>
+    <meta
+      name="description"
+      content="Interactive explorer for WildChat agency examples with domain, action type, kept-by, and secondary-check filters."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">WildChat agency examples</p>
+          <h1>Agency Explorer</h1>
+        </div>
+        <div class="top-actions">
+          <button id="randomButton" class="button secondary" type="button" disabled>Random</button>
+          <button id="resetButton" class="button ghost" type="button" disabled>Clear</button>
+        </div>
+      </header>
+
+      <section class="summary-grid" aria-label="Dataset summary">
+        <article class="summary-item">
+          <span class="summary-value" id="totalRows">--</span>
+          <span class="summary-label">examples</span>
+        </article>
+        <article class="summary-item">
+          <span class="summary-value" id="visibleRows">--</span>
+          <span class="summary-label">visible</span>
+        </article>
+        <article class="summary-item">
+          <span class="summary-value" id="domainCount">--</span>
+          <span class="summary-label">domains</span>
+        </article>
+        <article class="summary-item">
+          <span class="summary-value" id="actionCount">--</span>
+          <span class="summary-label">action types</span>
+        </article>
+      </section>
+
+      <section class="workbench">
+        <aside class="filters" aria-label="Filters">
+          <div class="filter-group">
+            <label for="searchInput">Search examples</label>
+            <input id="searchInput" type="search" placeholder="Search prompt text, domain, or tag" disabled>
+          </div>
+
+          <div class="filter-grid">
+            <div class="filter-group">
+              <label for="domainSelect">Domain</label>
+              <select id="domainSelect" disabled>
+                <option value="">All domains</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="sortSelect">Sort</label>
+              <select id="sortSelect" disabled>
+                <option value="index">Original order</option>
+                <option value="shortest">Shortest first</option>
+                <option value="longest">Longest first</option>
+                <option value="domain">Domain</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="pageSizeSelect">Page size</label>
+              <select id="pageSizeSelect" disabled>
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+
+          <fieldset class="facet-block">
+            <legend>Action type</legend>
+            <div id="actionFacets" class="facet-list"></div>
+          </fieldset>
+
+          <fieldset class="facet-block">
+            <legend>Kept by</legend>
+            <div id="keptFacets" class="facet-list compact"></div>
+          </fieldset>
+
+          <fieldset class="facet-block">
+            <legend>Secondary checks must be true</legend>
+            <div id="checkFacets" class="facet-list"></div>
+          </fieldset>
+        </aside>
+
+        <section class="results-panel" aria-label="Examples">
+          <div class="results-toolbar">
+            <div>
+              <p class="toolbar-kicker">Results</p>
+              <h2 id="resultTitle">Loading dataset</h2>
+            </div>
+            <div class="pager">
+              <button id="prevButton" class="icon-button" type="button" aria-label="Previous page" disabled>&lt;</button>
+              <span id="pageLabel">Page 1</span>
+              <button id="nextButton" class="icon-button" type="button" aria-label="Next page" disabled>&gt;</button>
+            </div>
+          </div>
+
+          <div id="status" class="status">Loading CSV...</div>
+          <ol id="resultsList" class="results-list"></ol>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="detailDialog" class="detail-dialog">
+      <form method="dialog" class="dialog-frame">
+        <div class="dialog-header">
+          <div>
+            <p id="dialogMeta" class="dialog-meta"></p>
+            <h2 id="dialogTitle">Example</h2>
+          </div>
+          <button class="icon-button" type="submit" aria-label="Close detail">x</button>
+        </div>
+        <div id="dialogTags" class="tag-row"></div>
+        <pre id="dialogText" class="dialog-text"></pre>
+      </form>
+    </dialog>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
