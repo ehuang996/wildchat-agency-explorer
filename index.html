@@ -23,6 +23,29 @@
         </div>
       </header>
 
+      <nav class="pipeline-tabs" aria-label="Pipeline selector" role="tablist">
+        <button
+          id="oldTab"
+          class="pipeline-tab"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          data-dataset="old"
+        >
+          Old results pipeline
+        </button>
+        <button
+          id="newTab"
+          class="pipeline-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-dataset="new"
+        >
+          New results pipeline
+        </button>
+      </nav>
+
       <section class="summary-grid" aria-label="Dataset summary">
         <article class="summary-item">
           <span class="summary-value" id="totalRows">--</span>
@@ -38,7 +61,7 @@
         </article>
         <article class="summary-item">
           <span class="summary-value" id="actionCount">--</span>
-          <span class="summary-label">action types</span>
+          <span class="summary-label" id="actionCountLabel">action types</span>
         </article>
       </section>
 
@@ -51,7 +74,7 @@
 
           <div class="filter-grid">
             <div class="filter-group">
-              <label for="domainSelect">Domain</label>
+              <label for="domainSelect" id="domainLabel">Domain</label>
               <select id="domainSelect" disabled>
                 <option value="">All domains</option>
               </select>
@@ -63,7 +86,7 @@
                 <option value="index">Original order</option>
                 <option value="shortest">Shortest first</option>
                 <option value="longest">Longest first</option>
-                <option value="domain">Domain</option>
+                <option value="domain" id="domainSortOption">Domain</option>
               </select>
             </div>
 
@@ -78,17 +101,17 @@
             </div>
           </div>
 
-          <fieldset class="facet-block">
-            <legend>Action type</legend>
+          <fieldset class="facet-block" id="actionFacetBlock">
+            <legend id="actionFacetLegend">Action type</legend>
             <div id="actionFacets" class="facet-list"></div>
           </fieldset>
 
-          <fieldset class="facet-block">
+          <fieldset class="facet-block" id="keptFacetBlock">
             <legend>Kept by</legend>
             <div id="keptFacets" class="facet-list compact"></div>
           </fieldset>
 
-          <fieldset class="facet-block">
+          <fieldset class="facet-block" id="checkFacetBlock">
             <legend>Secondary checks must be true</legend>
             <div id="checkFacets" class="facet-list"></div>
           </fieldset>

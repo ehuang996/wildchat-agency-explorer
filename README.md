@@ -1,9 +1,10 @@
 # WildChat Agency Explorer
 
-Static GitHub Pages explorer for `wildchat_agency_examples.csv`.
+Static GitHub Pages explorer for the WildChat agency pipeline CSVs.
 
 The page loads the CSV in the browser and supports:
 
+- top-level switching between `old_results_final.csv` and `new_results_incomplete.csv`
 - full-text search over prompt text and tags
 - domain, action type, kept-by, and secondary-check filters
 - result sorting and pagination

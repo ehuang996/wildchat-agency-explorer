@@ -103,6 +103,29 @@ h2 {
   flex-wrap: wrap;
 }
 
+.pipeline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pipeline-tab {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.pipeline-tab[aria-selected="true"] {
+  border-bottom-color: var(--teal);
+  color: var(--ink);
+}
+
 .button,
 .icon-button {
   min-height: 40px;
@@ -343,6 +366,14 @@ button:focus-visible {
   overflow: hidden;
 }
 
+.row-meta {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
@@ -471,6 +502,23 @@ mark {
   .results-toolbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .pipeline-tabs {
+    align-items: stretch;
+    flex-direction: column;
+    border-bottom: 0;
+  }
+
+  .pipeline-tab {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    text-align: left;
+  }
+
+  .pipeline-tab[aria-selected="true"] {
+    border-color: var(--teal);
   }
 
   h1 {

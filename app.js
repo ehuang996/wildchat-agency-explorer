@@ -1,14 +1,41 @@
 (function () {
   "use strict";
 
-  const DATA_URL = "wildchat_agency_examples.csv";
+  const DATASETS = {
+    old: {
+      id: "old",
+      label: "Old results pipeline",
+      url: "old_results_final.csv",
+      domainLabel: "Domain",
+      allDomainLabel: "All domains",
+      actionLabel: "Action type",
+      actionSummaryLabel: "action types",
+      resultKicker: "Old pipeline",
+    },
+    new: {
+      id: "new",
+      label: "New results pipeline",
+      url: "new_results_incomplete.csv",
+      domainLabel: "Primary category",
+      allDomainLabel: "All primary categories",
+      actionLabel: "Categories",
+      actionSummaryLabel: "categories",
+      resultKicker: "New pipeline",
+    },
+  };
+
+  const DEFAULT_DATASET_ID = "old";
   const CHECK_LABELS = {
     build_resilience_to_exogenous_shocks: "Resilience to shocks",
     exist_better_in_world: "Better option exists",
     make_world_work_better_for_user: "World works better for user",
   };
 
+  const datasetCache = new Map();
+  let loadToken = 0;
+
   const state = {
+    activeDatasetId: DEFAULT_DATASET_ID,
     rows: [],
     filtered: [],
     query: "",
@@ -22,16 +49,24 @@
   };
 
   const el = {
+    tabs: [...document.querySelectorAll(".pipeline-tab")],
     totalRows: document.getElementById("totalRows"),
     visibleRows: document.getElementById("visibleRows"),
     domainCount: document.getElementById("domainCount"),
     actionCount: document.getElementById("actionCount"),
+    actionCountLabel: document.getElementById("actionCountLabel"),
     searchInput: document.getElementById("searchInput"),
+    domainLabel: document.getElementById("domainLabel"),
     domainSelect: document.getElementById("domainSelect"),
+    domainSortOption: document.getElementById("domainSortOption"),
     sortSelect: document.getElementById("sortSelect"),
     pageSizeSelect: document.getElementById("pageSizeSelect"),
+    actionFacetBlock: document.getElementById("actionFacetBlock"),
+    actionFacetLegend: document.getElementById("actionFacetLegend"),
     actionFacets: document.getElementById("actionFacets"),
+    keptFacetBlock: document.getElementById("keptFacetBlock"),
     keptFacets: document.getElementById("keptFacets"),
+    checkFacetBlock: document.getElementById("checkFacetBlock"),
     checkFacets: document.getElementById("checkFacets"),
     resultTitle: document.getElementById("resultTitle"),
     status: document.getElementById("status"),
@@ -47,6 +82,10 @@
     dialogTags: document.getElementById("dialogTags"),
     dialogText: document.getElementById("dialogText"),
   };
+
+  function getActiveDataset() {
+    return DATASETS[state.activeDatasetId] || DATASETS[DEFAULT_DATASET_ID];
+  }
 
   function parseCsv(text) {
     const rows = [];
@@ -90,7 +129,7 @@
     return rows;
   }
 
-  function toRecords(csvRows) {
+  function toRecords(csvRows, dataset) {
     const headers = csvRows.shift().map((header) => header.trim());
 
     return csvRows
@@ -101,32 +140,56 @@
           record[header] = row[columnIndex] || "";
         });
 
-        const actions = readJson(record.action_types, []);
-        const kept = readJson(record.kept_by, []);
-        const checks = readJson(record.secondary_checks, {});
         const prompt = record.user_input || "";
+        const categories = asArray(readJson(record.categories, []));
+        const actions =
+          dataset.id === "new" ? categories : asArray(readJson(record.action_types, []));
+        const kept = asArray(readJson(record.kept_by, []));
+        const checks = readJson(record.secondary_checks, {});
+        const domain = record.domain || record.primary_category || categories[0] || "unknown";
+        const metadata = makeMetadata(record);
 
         return {
+          datasetId: dataset.id,
           index: index + 1,
           prompt,
-          promptLower: prompt.toLowerCase(),
-          domain: record.domain || "unknown",
-          definitionKeep: record.definition_keep === "True",
+          domain,
           actions,
           kept,
           checks,
+          metadata,
           length: prompt.length,
           searchText: [
             prompt,
-            record.domain,
+            domain,
+            categories.join(" "),
             actions.join(" "),
             kept.join(" "),
             Object.keys(checks).join(" "),
+            metadata.map((item) => item.value).join(" "),
           ]
             .join(" ")
             .toLowerCase(),
         };
       });
+  }
+
+  function makeMetadata(record) {
+    const metadata = [];
+
+    if (record.timestamp) {
+      metadata.push({ label: "Timestamp", value: record.timestamp });
+    }
+
+    if (record.conversation_hash) {
+      metadata.push({ label: "Conversation hash", value: record.conversation_hash });
+    }
+
+    if (record.category_reasoning) {
+      metadata.push({ label: "Category reasoning", value: record.category_reasoning });
+    }
+
+    return metadata;
   }
 
   function readJson(value, fallback) {
@@ -137,11 +200,17 @@
     }
   }
 
+  function asArray(value) {
+    return Array.isArray(value) ? value.filter(Boolean) : [];
+  }
+
   function countBy(rows, getter) {
     const counts = new Map();
     rows.forEach((row) => {
       getter(row).forEach((value) => {
-        counts.set(value, (counts.get(value) || 0) + 1);
+        if (value) {
+          counts.set(value, (counts.get(value) || 0) + 1);
+        }
       });
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -152,7 +221,8 @@
   }
 
   function prettyLabel(value) {
-    return CHECK_LABELS[value] || value.replaceAll("_", " ");
+    const text = String(value || "unknown");
+    return CHECK_LABELS[text] || text.replaceAll("_", " ");
   }
 
   function makeTag(text, kind) {
@@ -204,6 +274,7 @@
   }
 
   function initializeControls() {
+    const dataset = getActiveDataset();
     const domains = countBy(state.rows, (row) => [row.domain]);
     const actions = countBy(state.rows, (row) => row.actions);
     const kept = countBy(state.rows, (row) => row.kept);
@@ -213,6 +284,44 @@
         .map(([key]) => key)
     );
 
+    updateDatasetChrome(dataset);
+    renderDomainOptions(domains, dataset);
+    renderFacets(el.actionFacets, actions, "actions");
+    renderFacets(el.keptFacets, kept, "kept");
+    renderFacets(el.checkFacets, checks, "checks");
+
+    el.actionFacetBlock.hidden = !actions.length;
+    el.keptFacetBlock.hidden = !kept.length;
+    el.checkFacetBlock.hidden = !checks.length;
+
+    el.totalRows.textContent = formatNumber(state.rows.length);
+    el.domainCount.textContent = formatNumber(domains.length);
+    el.actionCount.textContent = formatNumber(actions.length);
+
+    setControlsDisabled(false);
+  }
+
+  function updateDatasetChrome(dataset) {
+    el.tabs.forEach((tab) => {
+      const isActive = tab.dataset.dataset === dataset.id;
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+
+    el.domainLabel.textContent = dataset.domainLabel;
+    el.domainSortOption.textContent = dataset.domainLabel;
+    el.actionFacetLegend.textContent = dataset.actionLabel;
+    el.actionCountLabel.textContent = dataset.actionSummaryLabel;
+    el.searchInput.placeholder = `Search ${dataset.label.toLowerCase()}`;
+  }
+
+  function renderDomainOptions(domains, dataset) {
+    el.domainSelect.textContent = "";
+
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = dataset.allDomainLabel;
+    el.domainSelect.append(allOption);
+
     domains.forEach(([domain, count]) => {
       const option = document.createElement("option");
       option.value = domain;
@@ -220,28 +329,20 @@
       el.domainSelect.append(option);
     });
 
-    renderFacets(el.actionFacets, actions, "actions");
-    renderFacets(el.keptFacets, kept, "kept");
-    renderFacets(el.checkFacets, checks, "checks");
-
-    el.totalRows.textContent = formatNumber(state.rows.length);
-    el.domainCount.textContent = formatNumber(domains.length);
-    el.actionCount.textContent = formatNumber(actions.length);
-
-    [
-      el.searchInput,
-      el.domainSelect,
-      el.sortSelect,
-      el.pageSizeSelect,
-      el.resetButton,
-      el.randomButton,
-    ].forEach((control) => {
-      control.disabled = false;
-    });
+    el.domainSelect.value = state.domain;
   }
 
   function wireEvents() {
     let searchTimer = 0;
+
+    el.tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const datasetId = tab.dataset.dataset;
+        if (datasetId && datasetId !== state.activeDatasetId) {
+          selectDataset(datasetId);
+        }
+      });
+    });
 
     el.searchInput.addEventListener("input", () => {
       window.clearTimeout(searchTimer);
@@ -273,11 +374,13 @@
     el.prevButton.addEventListener("click", () => {
       state.page = Math.max(1, state.page - 1);
       renderResults();
+      updateUrl();
     });
 
     el.nextButton.addEventListener("click", () => {
       state.page = Math.min(getPageCount(), state.page + 1);
       renderResults();
+      updateUrl();
     });
 
     el.resetButton.addEventListener("click", resetFilters);
@@ -334,6 +437,7 @@
   }
 
   function renderResults() {
+    const dataset = getActiveDataset();
     const pageCount = getPageCount();
     const start = (state.page - 1) * state.pageSize;
     const rows = state.filtered.slice(start, start + state.pageSize);
@@ -349,7 +453,7 @@
     if (!state.filtered.length) {
       el.status.hidden = false;
       el.status.className = "status";
-      el.status.textContent = "No examples match the current filters.";
+      el.status.textContent = `No ${dataset.label.toLowerCase()} examples match the current filters.`;
       return;
     }
 
@@ -374,21 +478,32 @@
     index.className = "result-index";
     index.textContent = `#${row.index}`;
 
-    header.append(index, makeTag(row.domain, "domain"));
-    row.actions.forEach((action) => header.append(makeTag(action, "action")));
-    row.kept.forEach((source) => header.append(makeTag(source, "kept")));
+    header.append(index);
+    appendRowTags(header, row);
 
     const prompt = document.createElement("p");
     prompt.className = "prompt clamped";
     appendHighlightedText(prompt, row.prompt, state.query);
 
-    const checks = document.createElement("div");
-    checks.className = "checks";
-    Object.entries(row.checks).forEach(([name, value]) => {
-      checks.append(makeCheckPill(name, value));
-    });
+    main.append(header, prompt);
 
-    main.append(header, prompt, checks);
+    const summaryMetadata = row.metadata.filter((item) => item.label !== "Category reasoning");
+    if (summaryMetadata.length) {
+      const meta = document.createElement("p");
+      meta.className = "row-meta";
+      meta.textContent = summaryMetadata.map((item) => `${item.label}: ${item.value}`).join(" | ");
+      main.append(meta);
+    }
+
+    const checkEntries = Object.entries(row.checks);
+    if (checkEntries.length) {
+      const checks = document.createElement("div");
+      checks.className = "checks";
+      checkEntries.forEach(([name, value]) => {
+        checks.append(makeCheckPill(name, value));
+      });
+      main.append(checks);
+    }
 
     const actions = document.createElement("div");
     actions.className = "card-actions";
@@ -402,6 +517,21 @@
 
     item.append(main, actions);
     return item;
+  }
+
+  function appendRowTags(container, row) {
+    const seen = new Set();
+    const appendUnique = (value, kind) => {
+      const key = `${kind}:${value}`;
+      if (value && !seen.has(key)) {
+        seen.add(key);
+        container.append(makeTag(value, kind));
+      }
+    };
+
+    appendUnique(row.domain, "domain");
+    row.actions.forEach((action) => appendUnique(action, "action"));
+    row.kept.forEach((source) => appendUnique(source, "kept"));
   }
 
   function appendHighlightedText(node, text, query) {
@@ -434,13 +564,18 @@
   }
 
   function openDetail(row) {
+    const dataset = DATASETS[row.datasetId] || getActiveDataset();
+    const metadataText = row.metadata
+      .map((item) => `${item.label}: ${item.value}`)
+      .join("\n\n");
+
     el.dialogTitle.textContent = `Example #${row.index}`;
-    el.dialogMeta.textContent = `${prettyLabel(row.domain)} | ${formatNumber(row.length)} characters`;
+    el.dialogMeta.textContent = `${dataset.label} | ${prettyLabel(row.domain)} | ${formatNumber(
+      row.length
+    )} characters`;
     el.dialogTags.textContent = "";
-    el.dialogTags.append(makeTag(row.domain, "domain"));
-    row.actions.forEach((action) => el.dialogTags.append(makeTag(action, "action")));
-    row.kept.forEach((source) => el.dialogTags.append(makeTag(source, "kept")));
-    el.dialogText.textContent = row.prompt;
+    appendRowTags(el.dialogTags, row);
+    el.dialogText.textContent = metadataText ? `${row.prompt}\n\n---\n\n${metadataText}` : row.prompt;
 
     if (typeof el.detailDialog.showModal === "function") {
       el.detailDialog.showModal();
@@ -456,7 +591,7 @@
     openDetail(row);
   }
 
-  function resetFilters() {
+  function resetFilterState() {
     state.query = "";
     state.domain = "";
     state.sort = "index";
@@ -465,82 +600,132 @@
     state.actions.clear();
     state.kept.clear();
     state.checks.clear();
-
-    el.searchInput.value = "";
-    el.domainSelect.value = "";
-    el.sortSelect.value = "index";
-    el.pageSizeSelect.value = "25";
-
-    renderFacets(el.actionFacets, countBy(state.rows, (row) => row.actions), "actions");
-    renderFacets(el.keptFacets, countBy(state.rows, (row) => row.kept), "kept");
-    renderFacets(
-      el.checkFacets,
-      countBy(state.rows, (row) =>
-        Object.entries(row.checks)
-          .filter(([, value]) => value)
-          .map(([key]) => key)
-      ),
-      "checks"
-    );
-
-    applyFilters();
   }
 
-  function updateUrl() {
-    const params = new URLSearchParams();
-    if (state.query) params.set("q", state.query);
-    if (state.domain) params.set("domain", state.domain);
-    if (state.sort !== "index") params.set("sort", state.sort);
-    if (state.pageSize !== 25) params.set("pageSize", String(state.pageSize));
-    if (state.actions.size) params.set("actions", [...state.actions].join(","));
-    if (state.kept.size) params.set("kept", [...state.kept].join(","));
-    if (state.checks.size) params.set("checks", [...state.checks].join(","));
-
-    const next = params.toString() ? `?${params}` : window.location.pathname;
-    window.history.replaceState(null, "", next);
-  }
-
-  function loadUrlState() {
-    const params = new URLSearchParams(window.location.search);
-    state.query = params.get("q") || "";
-    state.domain = params.get("domain") || "";
-    state.sort = params.get("sort") || "index";
-    state.pageSize = Number(params.get("pageSize") || 25);
-
-    splitParam(params.get("actions")).forEach((value) => state.actions.add(value));
-    splitParam(params.get("kept")).forEach((value) => state.kept.add(value));
-    splitParam(params.get("checks")).forEach((value) => state.checks.add(value));
-
+  function syncFormControls() {
     el.searchInput.value = state.query;
     el.domainSelect.value = state.domain;
     el.sortSelect.value = state.sort;
     el.pageSizeSelect.value = String(state.pageSize);
   }
 
+  function resetFilters() {
+    resetFilterState();
+    syncFormControls();
+    initializeControls();
+    applyFilters();
+  }
+
+  function updateUrl() {
+    const params = new URLSearchParams();
+    params.set("dataset", state.activeDatasetId);
+    if (state.query) params.set("q", state.query);
+    if (state.domain) params.set("domain", state.domain);
+    if (state.sort !== "index") params.set("sort", state.sort);
+    if (state.pageSize !== 25) params.set("pageSize", String(state.pageSize));
+    if (state.page > 1) params.set("page", String(state.page));
+    if (state.actions.size) params.set("actions", [...state.actions].join(","));
+    if (state.kept.size) params.set("kept", [...state.kept].join(","));
+    if (state.checks.size) params.set("checks", [...state.checks].join(","));
+
+    window.history.replaceState(null, "", `?${params}`);
+  }
+
+  function loadUrlState() {
+    const params = new URLSearchParams(window.location.search);
+    const datasetId = params.get("dataset");
+
+    state.activeDatasetId = DATASETS[datasetId] ? datasetId : DEFAULT_DATASET_ID;
+    state.query = params.get("q") || "";
+    state.domain = params.get("domain") || "";
+    state.sort = params.get("sort") || "index";
+    state.pageSize = Number(params.get("pageSize") || 25);
+    state.page = Math.max(1, Number(params.get("page") || 1));
+
+    splitParam(params.get("actions")).forEach((value) => state.actions.add(value));
+    splitParam(params.get("kept")).forEach((value) => state.kept.add(value));
+    splitParam(params.get("checks")).forEach((value) => state.checks.add(value));
+    syncFormControls();
+  }
+
   function splitParam(value) {
     return value ? value.split(",").filter(Boolean) : [];
   }
 
+  function setControlsDisabled(disabled) {
+    [
+      el.searchInput,
+      el.domainSelect,
+      el.sortSelect,
+      el.pageSizeSelect,
+      el.resetButton,
+      el.randomButton,
+      el.prevButton,
+      el.nextButton,
+    ].forEach((control) => {
+      control.disabled = disabled;
+    });
+  }
+
+  function setLoadingState(dataset) {
+    setControlsDisabled(true);
+    updateDatasetChrome(dataset);
+    el.status.hidden = false;
+    el.status.className = "status";
+    el.status.textContent = `Loading ${dataset.label.toLowerCase()}...`;
+    el.resultTitle.textContent = "Loading dataset";
+    el.resultsList.textContent = "";
+    el.totalRows.textContent = "--";
+    el.visibleRows.textContent = "--";
+    el.domainCount.textContent = "--";
+    el.actionCount.textContent = "--";
+  }
+
+  function selectDataset(datasetId) {
+    state.activeDatasetId = DATASETS[datasetId] ? datasetId : DEFAULT_DATASET_ID;
+    resetFilterState();
+    syncFormControls();
+    loadData();
+  }
+
   async function loadData() {
+    const dataset = getActiveDataset();
+    const token = (loadToken += 1);
+    setLoadingState(dataset);
+
     try {
-      const response = await fetch(DATA_URL);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (!datasetCache.has(dataset.id)) {
+        const response = await fetch(dataset.url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const text = await response.text();
+        datasetCache.set(dataset.id, toRecords(parseCsv(text), dataset));
       }
 
-      const text = await response.text();
-      state.rows = toRecords(parseCsv(text));
+      if (token !== loadToken) {
+        return;
+      }
+
+      state.rows = datasetCache.get(dataset.id);
       state.filtered = state.rows;
       initializeControls();
-      loadUrlState();
+      syncFormControls();
       applyFilters();
     } catch (error) {
+      if (token !== loadToken) {
+        return;
+      }
+
+      setControlsDisabled(true);
       el.status.className = "status error";
-      el.status.textContent = `Could not load ${DATA_URL}: ${error.message}`;
+      el.status.textContent = `Could not load ${dataset.url}: ${error.message}`;
       el.resultTitle.textContent = "Dataset unavailable";
     }
   }
 
   wireEvents();
+  loadUrlState();
   loadData();
 })();
