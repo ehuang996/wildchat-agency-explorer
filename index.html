@@ -44,9 +44,29 @@
         >
           New results pipeline
         </button>
+        <button
+          id="domainFilterTab"
+          class="pipeline-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-doc="filter_domain"
+        >
+          Domain filter
+        </button>
+        <button
+          id="structuralFilterTab"
+          class="pipeline-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-doc="filter_structural"
+        >
+          Structural filter
+        </button>
       </nav>
 
-      <section class="summary-grid" aria-label="Dataset summary">
+      <section class="summary-grid" id="summaryGrid" aria-label="Dataset summary">
         <article class="summary-item">
           <span class="summary-value" id="totalRows">--</span>
           <span class="summary-label">examples</span>
@@ -65,7 +85,7 @@
         </article>
       </section>
 
-      <section class="workbench">
+      <section class="workbench" id="workbench">
         <aside class="filters" aria-label="Filters">
           <div class="filter-group">
             <label for="searchInput">Search examples</label>
@@ -133,6 +153,17 @@
           <div id="status" class="status">Loading CSV...</div>
           <ol id="resultsList" class="results-list"></ol>
         </section>
+      </section>
+
+      <section class="json-viewer" id="jsonViewer" aria-label="Filter configuration" hidden>
+        <div class="json-toolbar">
+          <div>
+            <p class="toolbar-kicker">Filter configuration</p>
+            <h2 id="jsonTitle">Loading filter</h2>
+          </div>
+        </div>
+        <div id="jsonStatus" class="status">Loading JSON...</div>
+        <div id="jsonContent" class="doc-content"></div>
       </section>
     </main>
 

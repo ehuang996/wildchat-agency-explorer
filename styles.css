@@ -192,7 +192,8 @@ h2 {
 }
 
 .filters,
-.results-panel {
+.results-panel,
+.json-viewer {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -288,7 +289,8 @@ button:focus-visible {
   overflow: hidden;
 }
 
-.results-toolbar {
+.results-toolbar,
+.json-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -296,6 +298,95 @@ button:focus-visible {
   min-height: 82px;
   border-bottom: 1px solid var(--line);
   padding: 18px;
+}
+
+.doc-content {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+
+.doc-section {
+  display: grid;
+  gap: 10px;
+}
+
+.doc-section-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.prompt-lines {
+  display: grid;
+  gap: 7px;
+}
+
+.prompt-line {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.96rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.prompt-line.heading {
+  margin-top: 4px;
+  font-weight: 800;
+}
+
+.prompt-line.numbered,
+.prompt-line.bullet {
+  padding-left: 16px;
+}
+
+.prompt-line.schema {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  padding: 10px;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.86rem;
+  white-space: pre-wrap;
+}
+
+.prompt-spacer {
+  min-height: 8px;
+}
+
+.model-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.model-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 180px) minmax(120px, 180px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  font-size: 0.92rem;
+}
+
+.model-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.model-key {
+  color: var(--muted);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.model-value {
+  overflow-wrap: anywhere;
 }
 
 #pageLabel {
@@ -499,7 +590,8 @@ mark {
   }
 
   .topbar,
-  .results-toolbar {
+  .results-toolbar,
+  .json-toolbar {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -530,6 +622,10 @@ mark {
   }
 
   .workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .model-row {
     grid-template-columns: 1fr;
   }
 

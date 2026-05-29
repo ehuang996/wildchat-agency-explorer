@@ -24,6 +24,21 @@
     },
   };
 
+  const DOCS = {
+    filter_domain: {
+      id: "filter_domain",
+      label: "Domain filter",
+      url: "filter_domain.json",
+      title: "filter_domain.json",
+    },
+    filter_structural: {
+      id: "filter_structural",
+      label: "Structural filter",
+      url: "filter_structural.json",
+      title: "filter_structural.json",
+    },
+  };
+
   const DEFAULT_DATASET_ID = "old";
   const CHECK_LABELS = {
     build_resilience_to_exogenous_shocks: "Resilience to shocks",
@@ -32,10 +47,12 @@
   };
 
   const datasetCache = new Map();
+  const docCache = new Map();
   let loadToken = 0;
 
   const state = {
     activeDatasetId: DEFAULT_DATASET_ID,
+    activeDocId: "",
     rows: [],
     filtered: [],
     query: "",
@@ -50,6 +67,9 @@
 
   const el = {
     tabs: [...document.querySelectorAll(".pipeline-tab")],
+    topActions: document.querySelector(".top-actions"),
+    summaryGrid: document.getElementById("summaryGrid"),
+    workbench: document.getElementById("workbench"),
     totalRows: document.getElementById("totalRows"),
     visibleRows: document.getElementById("visibleRows"),
     domainCount: document.getElementById("domainCount"),
@@ -76,6 +96,10 @@
     pageLabel: document.getElementById("pageLabel"),
     resetButton: document.getElementById("resetButton"),
     randomButton: document.getElementById("randomButton"),
+    jsonViewer: document.getElementById("jsonViewer"),
+    jsonTitle: document.getElementById("jsonTitle"),
+    jsonStatus: document.getElementById("jsonStatus"),
+    jsonContent: document.getElementById("jsonContent"),
     detailDialog: document.getElementById("detailDialog"),
     dialogTitle: document.getElementById("dialogTitle"),
     dialogMeta: document.getElementById("dialogMeta"),
@@ -85,6 +109,14 @@
 
   function getActiveDataset() {
     return DATASETS[state.activeDatasetId] || DATASETS[DEFAULT_DATASET_ID];
+  }
+
+  function getActiveDoc() {
+    return DOCS[state.activeDocId] || null;
+  }
+
+  function isDocView() {
+    return Boolean(getActiveDoc());
   }
 
   function parseCsv(text) {
@@ -302,8 +334,9 @@
   }
 
   function updateDatasetChrome(dataset) {
+    setViewVisibility("dataset");
     el.tabs.forEach((tab) => {
-      const isActive = tab.dataset.dataset === dataset.id;
+      const isActive = tab.dataset.dataset === dataset.id && !isDocView();
       tab.setAttribute("aria-selected", String(isActive));
     });
 
@@ -312,6 +345,22 @@
     el.actionFacetLegend.textContent = dataset.actionLabel;
     el.actionCountLabel.textContent = dataset.actionSummaryLabel;
     el.searchInput.placeholder = `Search ${dataset.label.toLowerCase()}`;
+  }
+
+  function updateDocChrome(doc) {
+    setViewVisibility("doc");
+    el.tabs.forEach((tab) => {
+      const isActive = tab.dataset.doc === doc.id;
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+  }
+
+  function setViewVisibility(view) {
+    const showDoc = view === "doc";
+    el.topActions.hidden = showDoc;
+    el.summaryGrid.hidden = showDoc;
+    el.workbench.hidden = showDoc;
+    el.jsonViewer.hidden = !showDoc;
   }
 
   function renderDomainOptions(domains, dataset) {
@@ -338,8 +387,13 @@
     el.tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
         const datasetId = tab.dataset.dataset;
+        const docId = tab.dataset.doc;
         if (datasetId && datasetId !== state.activeDatasetId) {
           selectDataset(datasetId);
+        } else if (datasetId && isDocView()) {
+          selectDataset(datasetId);
+        } else if (docId && docId !== state.activeDocId) {
+          selectDoc(docId);
         }
       });
     });
@@ -618,6 +672,12 @@
 
   function updateUrl() {
     const params = new URLSearchParams();
+    if (isDocView()) {
+      params.set("view", state.activeDocId);
+      window.history.replaceState(null, "", `?${params}`);
+      return;
+    }
+
     params.set("dataset", state.activeDatasetId);
     if (state.query) params.set("q", state.query);
     if (state.domain) params.set("domain", state.domain);
@@ -633,8 +693,10 @@
 
   function loadUrlState() {
     const params = new URLSearchParams(window.location.search);
+    const viewId = params.get("view");
     const datasetId = params.get("dataset");
 
+    state.activeDocId = DOCS[viewId] ? viewId : "";
     state.activeDatasetId = DATASETS[datasetId] ? datasetId : DEFAULT_DATASET_ID;
     state.query = params.get("q") || "";
     state.domain = params.get("domain") || "";
@@ -683,9 +745,180 @@
 
   function selectDataset(datasetId) {
     state.activeDatasetId = DATASETS[datasetId] ? datasetId : DEFAULT_DATASET_ID;
+    state.activeDocId = "";
     resetFilterState();
     syncFormControls();
     loadData();
+  }
+
+  function selectDoc(docId) {
+    if (!DOCS[docId]) {
+      return;
+    }
+
+    state.activeDocId = docId;
+    loadDoc();
+  }
+
+  function setLoadingDoc(doc) {
+    setControlsDisabled(true);
+    updateDocChrome(doc);
+    el.jsonStatus.hidden = false;
+    el.jsonStatus.className = "status";
+    el.jsonStatus.textContent = `Loading ${doc.title}...`;
+    el.jsonTitle.textContent = doc.title;
+    el.jsonContent.textContent = "";
+  }
+
+  function renderDoc(doc, data) {
+    el.jsonTitle.textContent = doc.title;
+    el.jsonStatus.hidden = true;
+    el.jsonContent.textContent = "";
+
+    if (Array.isArray(data.system_prompt)) {
+      el.jsonContent.append(renderPromptSection("system_prompt", data.system_prompt));
+    }
+
+    if (data.models_by_pass && typeof data.models_by_pass === "object") {
+      el.jsonContent.append(renderModelsSection(data.models_by_pass));
+    }
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (key === "system_prompt" || key === "models_by_pass") {
+        return;
+      }
+
+      el.jsonContent.append(renderJsonSection(key, value));
+    });
+  }
+
+  function makeDocSection(title) {
+    const section = document.createElement("section");
+    section.className = "doc-section";
+
+    const heading = document.createElement("h3");
+    heading.className = "doc-section-title";
+    heading.textContent = title;
+    section.append(heading);
+
+    return section;
+  }
+
+  function renderPromptSection(title, lines) {
+    const section = makeDocSection(title);
+    const lineList = document.createElement("div");
+    lineList.className = "prompt-lines";
+
+    lines.forEach((line) => {
+      lineList.append(renderPromptLine(line));
+    });
+
+    section.append(lineList);
+    return section;
+  }
+
+  function renderPromptLine(line) {
+    if (line === "") {
+      const spacer = document.createElement("div");
+      spacer.className = "prompt-spacer";
+      return spacer;
+    }
+
+    const block = document.createElement(line.trim().startsWith("{") ? "pre" : "p");
+    block.className = `prompt-line ${getPromptLineClass(line)}`.trim();
+    block.textContent = line;
+    return block;
+  }
+
+  function getPromptLineClass(line) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("{")) {
+      return "schema";
+    }
+    if (/^\d+\.\s/.test(trimmed)) {
+      return "numbered";
+    }
+    if (trimmed.startsWith("- ")) {
+      return "bullet";
+    }
+    if (trimmed.endsWith(":")) {
+      return "heading";
+    }
+    return "";
+  }
+
+  function renderModelsSection(modelsByPass) {
+    const section = makeDocSection("models_by_pass");
+    const grid = document.createElement("div");
+    grid.className = "model-grid";
+
+    Object.entries(modelsByPass).forEach(([passName, models]) => {
+      Object.entries(models).forEach(([modelKey, modelName]) => {
+        const row = document.createElement("div");
+        row.className = "model-row";
+
+        [passName, modelKey].forEach((value) => {
+          const cell = document.createElement("span");
+          cell.className = "model-key";
+          cell.textContent = value;
+          row.append(cell);
+        });
+
+        const valueCell = document.createElement("span");
+        valueCell.className = "model-value";
+        valueCell.textContent = modelName;
+        row.append(valueCell);
+        grid.append(row);
+      });
+    });
+
+    section.append(grid);
+    return section;
+  }
+
+  function renderJsonSection(key, value) {
+    const section = makeDocSection(key);
+    const block = document.createElement("pre");
+    block.className = "prompt-line schema";
+    block.textContent = JSON.stringify(value, null, 2);
+    section.append(block);
+    return section;
+  }
+
+  async function loadDoc() {
+    const doc = getActiveDoc();
+    if (!doc) {
+      return;
+    }
+
+    const token = (loadToken += 1);
+    setLoadingDoc(doc);
+
+    try {
+      if (!docCache.has(doc.id)) {
+        const response = await fetch(doc.url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        docCache.set(doc.id, await response.json());
+      }
+
+      if (token !== loadToken) {
+        return;
+      }
+
+      renderDoc(doc, docCache.get(doc.id));
+      updateUrl();
+    } catch (error) {
+      if (token !== loadToken) {
+        return;
+      }
+
+      el.jsonStatus.className = "status error";
+      el.jsonStatus.textContent = `Could not load ${doc.url}: ${error.message}`;
+      el.jsonTitle.textContent = "Filter unavailable";
+    }
   }
 
   async function loadData() {
@@ -727,5 +960,9 @@
 
   wireEvents();
   loadUrlState();
-  loadData();
+  if (isDocView()) {
+    loadDoc();
+  } else {
+    loadData();
+  }
 })();
