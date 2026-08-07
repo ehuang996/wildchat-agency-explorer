@@ -1,6 +1,7 @@
 {
  "rows": 9404,
- "corpus": 11888,
+ "corpus": 11892,
+ "unlabelled": 4,
  "withheld_for_pii": 2484,
  "shard_size": 250,
  "shards": 38,

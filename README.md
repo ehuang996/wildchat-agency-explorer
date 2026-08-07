@@ -37,8 +37,10 @@ how people use the model rather than two codes overlapping by definition.
 ## What is not here
 
 Every conversation was reviewed for personally identifying information by an
-LLM judge. Of 11,888 rows, **2,484 are withheld and 9,404 are published** — 2,480
-flagged by the reviewer, plus 4 whose review errored and so were never cleared.
+LLM judge. The corpus is 11,892 conversations. Four were discarded at the labelling stage
+because the judge refused to answer, leaving 11,888 labelled. Of those,
+**2,484 are withheld and 9,404 are published** — 2,480 flagged by the reviewer,
+plus 4 whose review errored and so were never cleared.
 Flagged rows are excluded entirely rather than published in redacted form.
 
 Because advocacy conversations tend to name employers, landlords and officials,
