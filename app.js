@@ -1,12 +1,17 @@
 /* WildChat Structural-Agency Explorer
-   Five tabs over a static payload: Examples (search + paginate 9,408 rows),
+   Five tabs over a static payload: Examples (search + paginate the published rows),
    Prompts (every production prompt), Analysis (actions x requests heatmap),
    Verify (blind agreement test against the Opus labels), Upload (read a
    verification JSONL back in and see it against Opus).
 
    index.json carries labels + the full user turn, so search and filtering are
    instant. Assistant responses live in 250-row shards fetched on demand — a card
-   only pulls its shard when you expand it. */
+   only pulls its shard when you expand it.
+
+   Two populations, deliberately: only PII-cleared conversations are browsable, but
+   Analysis counts the whole experiment (meta.analysis). The withheld rows are not a
+   random sample, so analysing the published subset alone would understate the very
+   findings the paper reports. */
 
 const PAGE = 50;
 const S = {
@@ -47,7 +52,8 @@ for (const id of TABS) {
   for (const row of S.index) row._s = row.u.toLowerCase();
 
   $('#brandsub').textContent =
-    `${nf(meta.rows)} conversations · ${nf(meta.withheld_for_pii)} withheld by the PII gate`;
+    `${nf(meta.analysis.n)} conversations analysed · ${nf(meta.rows)} browsable · ` +
+    `${nf(meta.withheld_for_pii)} withheld by the PII gate`;
 
   buildFacet('#f-domain', meta.domains, meta.domain_counts, S.domain);
   buildFacet('#f-action', meta.actions, meta.action_counts, S.action);
@@ -213,7 +219,11 @@ let analysisReady = false;
 function drawAnalysis() {
   if (analysisReady) return;
   analysisReady = true;
-  const m = S.meta;
+  // Analysis reads the full-corpus counts. The Examples sidebar keeps using the
+  // published counts, because a facet count there has to match the rows you can
+  // actually open. Mixing the two would make the site contradict itself.
+  const A = S.meta.analysis;
+  const m = { ...S.meta, ...A };
 
   // Sequential single-hue ramp: magnitude is one variable, so one hue, light to dark.
   const ramp = ['#eef3f7', '#cfe0eb', '#a8c6db', '#7aa5c6', '#4c81ab', '#2e5c7e'];
@@ -261,17 +271,24 @@ function drawAnalysis() {
     top.slice(0, 3).map(([s, a, r]) =>
       `<b>${esc(pretty(a))} → ${esc(pretty(r))}</b> (${(s * 100).toFixed(0)}%)`).join(', ') + '.';
 
-  bars('#bars-action', m.actions, m.action_counts, m.rows);
-  bars('#bars-request', m.requests, m.request_counts, m.rows);
-  bars('#bars-domain', m.domains, m.domain_counts, m.rows);
+  bars('#bars-action', m.actions, m.action_counts, A.n);
+  bars('#bars-request', m.requests, m.request_counts, A.n);
+  bars('#bars-domain', m.domains, m.domain_counts, A.n);
 
   $('#about').innerHTML =
-    `${nf(m.rows)} of ${nf(m.total_labelled)} labelled conversations are shown here. ` +
-    `${nf(m.withheld_for_pii)} are withheld: a GPT-4o-mini reviewer flagged them as containing ` +
-    `information that could identify a real person, and they are excluded from this site entirely ` +
-    `rather than published in redacted form. Source corpus: WildChat. ` +
-    `Domain labels come from nine per-domain weak-to-strong cascades plus a general residual filter; ` +
-    `action and request labels from two independent Claude Opus 4.8 passes.`;
+    `<b>The figures on this page cover the whole experiment: ${nf(A.n)} conversations, ` +
+    `not only the ${nf(S.meta.rows)} browsable in the Examples tab.</b> ` +
+    `${nf(S.meta.withheld_for_pii)} conversations are withheld from browsing because a GPT-4o-mini ` +
+    `reviewer flagged them as containing information that could identify a real person; they are ` +
+    `excluded from publication entirely rather than shown in redacted form, but they are still ` +
+    `counted here. That matters, because the withheld rows are not a random sample \u2014 ` +
+    `conversations contesting a decision tend to name employers, landlords and officials, so they ` +
+    `are flagged more often. Computing these distributions over the published subset alone would ` +
+    `understate self-advocacy by roughly a third. ` +
+    `Of ${nf(S.meta.corpus)} conversations in the corpus, ${nf(S.meta.corpus - A.n)} are absent here: ` +
+    `the judge's provider refused to label them on content-filter grounds. ` +
+    `Source corpus: WildChat. Domain labels come from nine per-domain weak-to-strong cascades plus ` +
+    `a general residual filter; action and request labels from two independent Claude Opus 4.8 passes.`;
 }
 
 function bars(sel, keys, counts, total) {
