@@ -3,8 +3,6 @@
  "corpus": 11892,
  "unlabelled": 4,
  "withheld_for_pii": 2484,
- "shard_size": 250,
- "shards": 38,
  "domains": [
   "workplace_practice",
   "business_income",

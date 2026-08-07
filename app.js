@@ -5,8 +5,8 @@
    verification JSONL back in and see it against Opus).
 
    index.json carries labels + the full user turn, so search and filtering are
-   instant. Assistant responses live in 250-row shards fetched on demand — a card
-   only pulls its shard when you expand it.
+   instant. Only the user turn is published; assistant responses are not part of
+   the payload.
 
    Two populations, deliberately: only PII-cleared conversations are browsable, but
    Analysis counts the whole experiment (meta.analysis). The withheld rows are not a
@@ -18,7 +18,6 @@ const S = {
   index: [], meta: null, prompts: null,
   filtered: [], page: 0,
   q: '', domain: new Set(), action: new Set(), request: new Set(),
-  shards: new Map(),
 };
 const $ = (s) => document.querySelector(s);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -144,37 +143,11 @@ function render() {
     ].join('');
     el.innerHTML =
       `<div class="meta"><code>${esc(r.h)}</code><span>${esc(r.t)}</span>${tags}</div>
-       <div class="utext">${highlight(r.u, S.q)}</div>
-       <details data-i="${r.i}"><summary>assistant response</summary>
-         <div class="atext">loading…</div></details>`;
+       <div class="utext">${highlight(r.u, S.q)}</div>`;
     frag.appendChild(el);
   }
   host.innerHTML = '';
   host.appendChild(frag);
-
-  host.querySelectorAll('details').forEach((d) => {
-    d.addEventListener('toggle', async () => {
-      if (!d.open || d.dataset.done) return;
-      d.dataset.done = '1';
-      const i = Number(d.dataset.i);
-      const body = d.querySelector('.atext');
-      try {
-        body.textContent = await assistantFor(i);
-      } catch {
-        body.textContent = '(could not load the assistant response)';
-      }
-    }, { once: false });
-  });
-}
-
-async function assistantFor(i) {
-  const size = S.meta.shard_size;
-  const n = Math.floor(i / size);
-  if (!S.shards.has(n)) {
-    S.shards.set(n, fetch(`data/rows/${String(n).padStart(3, '0')}.json`).then((r) => r.json()));
-  }
-  const shard = await S.shards.get(n);
-  return shard[i % size] || '(empty)';
 }
 
 /* ---------------- prompts ---------------- */
@@ -183,7 +156,7 @@ async function ensurePrompts() {
   if (promptsReady) return;
   promptsReady = true;
   S.prompts = await fetch('data/prompts.json').then((r) => r.json());
-  const groups = [['actions', '#nav-actions'], ['requests', '#nav-requests'], ['domains', '#nav-domains']];
+  const groups = [['actions', '#nav-actions'], ['requests', '#nav-requests']];
   let first = null;
   for (const [key, sel] of groups) {
     const host = $(sel);
@@ -203,7 +176,6 @@ async function ensurePrompts() {
 const SUBS = {
   actions: 'Stage 03 — judges WHY the person is asking. 1–3 of 6 codes. Claude Opus 4.8.',
   requests: 'Stage 04 — judges WHAT they asked the model to produce. 1–3 of 5 codes. Claude Opus 4.8.',
-  domains: 'Stage 02 — the recall gate, nine per-domain cascades, and the general residual filter.',
 };
 
 function showPrompt(key, p, btn) {

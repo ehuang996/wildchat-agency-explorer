@@ -10,9 +10,9 @@ they made of the model.
 ## Tabs
 
 - **Examples** — all 9,408 published conversations, searchable, filterable by
-  domain / action / request, 50 per page. Assistant responses load on demand.
-- **Prompts** — every production prompt: the nine per-domain filters, the recall
-  gate, the general residual filter, and the two labelling passes.
+  domain / action / request, 50 per page. Only the user turn is shown;
+  assistant responses are not published.
+- **Prompts** — the two labelling prompts (action and request).
 - **Analysis** — the action × request cross-tab, plus label distributions.
 - **Verify** — a blind agreement check. Eight conversations are shown with
   candidate labels and no indication of what the model decided. At the end you
