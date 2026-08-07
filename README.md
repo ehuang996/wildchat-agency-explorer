@@ -1,23 +1,50 @@
-# WildChat Agency Explorer
+# Structural Agency Explorer
 
-Static GitHub Pages explorer for the WildChat agency pipeline CSVs.
+Static explorer for structural-agency conversations mined from
+[WildChat](https://huggingface.co/datasets/allenai/WildChat-1M), labelled by
+institutional domain, by the action the person was pursuing, and by the request
+they made of the model.
 
-The page loads the CSV in the browser and supports:
+**https://ehuang996.github.io/wildchat-agency-explorer/**
 
-- top-level switching between `old_results_final.csv` and `new_results_incomplete.csv`
-- read-only formatted views for `filter_domain.json` and `filter_structural.json`
-- full-text search over prompt text and tags
-- domain, action type, kept-by, and secondary-check filters
-- result sorting and pagination
-- shareable URL query parameters
-- a detail dialog for full prompt text
+## Tabs
 
-## Local Preview
+- **Examples** — all 9,408 published conversations, searchable, filterable by
+  domain / action / request, 50 per page. Assistant responses load on demand.
+- **Prompts** — every production prompt: the nine per-domain filters, the recall
+  gate, the general residual filter, and the two labelling passes.
+- **Analysis** — the action × request cross-tab, plus label distributions.
+- **Verify** — a blind agreement check. Eight conversations are shown with
+  candidate labels and no indication of what the model decided; your yes/no
+  answers download as JSONL.
 
-Serve the directory before opening the page so the browser can fetch the CSV:
+## How the labels are produced
 
-```sh
-python3 -m http.server 8000
+| Stage | What it decides |
+|---|---|
+| Domain | A recall gate, then nine parallel per-domain weak-to-strong cascades, then a general residual filter. |
+| Action (why) | 1–3 of 6 codes: the real-world undertaking the person is pursuing. |
+| Request (what) | 1–3 of 5 codes: the deliverable they asked the model for. |
+
+Action and request are annotated in two **independent** passes — neither judge
+sees the other's verdict — so a strong cell in the cross-tab is a finding about
+how people use the model rather than two codes overlapping by definition.
+
+## What is not here
+
+Every conversation was reviewed for personally identifying information by an
+LLM judge. **2,480 of 11,888 rows were flagged and are excluded from this site
+entirely**, rather than published in redacted form. Only cleared rows appear.
+
+Because advocacy conversations tend to name employers, landlords and officials,
+they are flagged more often — `self_advocacy` is 4.9% of the published subset
+against 7.3% of the full corpus. Distributions here are of the published subset,
+not of the corpus.
+
+## Running locally
+
+```bash
+python3 -m http.server 8811
 ```
 
-Then open `http://localhost:8000/`.
+Everything is static: no build step, no dependencies, no network calls.

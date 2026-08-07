@@ -1,0 +1,93 @@
+{
+ "rows": 9408,
+ "total_labelled": 11892,
+ "withheld_for_pii": 2484,
+ "shard_size": 250,
+ "shards": 38,
+ "domains": [
+  "workplace_practice",
+  "business_income",
+  "employment_career",
+  "legal",
+  "education",
+  "finance_tax",
+  "housing",
+  "healthcare",
+  "politics_civic",
+  "other"
+ ],
+ "actions": [
+  "system_navigation",
+  "goal_planning",
+  "decision_support",
+  "self_advocacy",
+  "interpretation",
+  "resource_access"
+ ],
+ "requests": [
+  "compose",
+  "explain",
+  "advise",
+  "locate",
+  "revise"
+ ],
+ "domain_counts": {
+  "workplace_practice": 3433,
+  "business_income": 2740,
+  "employment_career": 2363,
+  "legal": 1083,
+  "finance_tax": 1061,
+  "education": 1010,
+  "healthcare": 344,
+  "other": 323,
+  "housing": 306,
+  "politics_civic": 151
+ },
+ "action_counts": {
+  "system_navigation": 3785,
+  "goal_planning": 4315,
+  "decision_support": 1315,
+  "self_advocacy": 465,
+  "interpretation": 659,
+  "resource_access": 884
+ },
+ "request_counts": {
+  "compose": 2872,
+  "explain": 4369,
+  "advise": 1945,
+  "locate": 857,
+  "revise": 573
+ },
+ "crosstab": {
+  "system_navigation|compose": 1462,
+  "system_navigation|explain": 1783,
+  "system_navigation|advise": 358,
+  "system_navigation|locate": 111,
+  "system_navigation|revise": 360,
+  "goal_planning|compose": 1338,
+  "goal_planning|explain": 1925,
+  "goal_planning|advise": 1206,
+  "goal_planning|locate": 511,
+  "goal_planning|revise": 145,
+  "decision_support|compose": 90,
+  "decision_support|explain": 637,
+  "decision_support|advise": 743,
+  "decision_support|locate": 81,
+  "decision_support|revise": 18,
+  "self_advocacy|compose": 160,
+  "self_advocacy|explain": 153,
+  "self_advocacy|advise": 93,
+  "self_advocacy|locate": 11,
+  "self_advocacy|revise": 92,
+  "interpretation|compose": 28,
+  "interpretation|explain": 561,
+  "interpretation|advise": 111,
+  "interpretation|locate": 4,
+  "interpretation|revise": 21,
+  "resource_access|compose": 101,
+  "resource_access|explain": 303,
+  "resource_access|advise": 126,
+  "resource_access|locate": 608,
+  "resource_access|revise": 15
+ }
+}

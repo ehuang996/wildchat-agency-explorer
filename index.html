@@ -1,186 +1,128 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WildChat Agency Explorer</title>
-    <meta
-      name="description"
-      content="Interactive explorer for WildChat agency examples with domain, action type, kept-by, and secondary-check filters."
-    >
-    <link rel="stylesheet" href="styles.css?v=filter-tabs-2">
-  </head>
-  <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">WildChat agency examples</p>
-          <h1>Agency Explorer</h1>
-        </div>
-        <div class="top-actions">
-          <button id="randomButton" class="button secondary" type="button" disabled>Random</button>
-          <button id="resetButton" class="button ghost" type="button" disabled>Clear</button>
-        </div>
-      </header>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WildChat Structural-Agency Explorer</title>
+<meta name="description" content="Browse structural-agency conversations mined from WildChat, labelled by institutional domain, action and request.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-      <nav class="pipeline-tabs" aria-label="Pipeline selector" role="tablist">
-        <button
-          id="oldTab"
-          class="pipeline-tab"
-          type="button"
-          role="tab"
-          aria-selected="true"
-          data-dataset="old"
-        >
-          Old results pipeline
-        </button>
-        <button
-          id="newTab"
-          class="pipeline-tab"
-          type="button"
-          role="tab"
-          aria-selected="false"
-          data-dataset="new"
-        >
-          New results pipeline
-        </button>
-        <button
-          id="domainFilterTab"
-          class="pipeline-tab"
-          type="button"
-          role="tab"
-          aria-selected="false"
-          data-doc="filter_domain"
-        >
-          Domain filter
-        </button>
-        <button
-          id="structuralFilterTab"
-          class="pipeline-tab"
-          type="button"
-          role="tab"
-          aria-selected="false"
-          data-doc="filter_structural"
-        >
-          Structural filter
-        </button>
-      </nav>
+<div class="topbar">
+  <div class="brand">Structural&nbsp;Agency&nbsp;Explorer <span id="brandsub">loading…</span></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-examples" aria-controls="panel-examples" aria-selected="true">Examples</button>
+    <button role="tab" id="tab-prompts"  aria-controls="panel-prompts"  aria-selected="false">Prompts</button>
+    <button role="tab" id="tab-analysis" aria-controls="panel-analysis" aria-selected="false">Analysis</button>
+    <button role="tab" id="tab-verify"   aria-controls="panel-verify"   aria-selected="false">Verify</button>
+  </nav>
+</div>
 
-      <section class="summary-grid" id="summaryGrid" aria-label="Dataset summary">
-        <article class="summary-item">
-          <span class="summary-value" id="totalRows">--</span>
-          <span class="summary-label">examples</span>
-        </article>
-        <article class="summary-item">
-          <span class="summary-value" id="visibleRows">--</span>
-          <span class="summary-label">visible</span>
-        </article>
-        <article class="summary-item">
-          <span class="summary-value" id="domainCount">--</span>
-          <span class="summary-label">domains</span>
-        </article>
-        <article class="summary-item">
-          <span class="summary-value" id="actionCount">--</span>
-          <span class="summary-label" id="actionCountLabel">action types</span>
-        </article>
-      </section>
+<!-- ============ EXAMPLES ============ -->
+<div class="tabpanel" id="panel-examples" role="tabpanel" aria-labelledby="tab-examples">
+  <div class="layout">
+    <aside class="side">
+      <h3>Search</h3>
+      <input id="q" class="search" type="search" placeholder="search user turns…" autocomplete="off">
+      <div class="hint">Searches the user's message across all conversations.</div>
 
-      <section class="workbench" id="workbench">
-        <aside class="filters" aria-label="Filters">
-          <div class="filter-group">
-            <label for="searchInput">Search examples</label>
-            <input id="searchInput" type="search" placeholder="Search prompt text, domain, or tag" disabled>
-          </div>
+      <h3>Domain</h3>
+      <div class="facet" id="f-domain"></div>
+      <h3>Action <span style="text-transform:none;letter-spacing:0">(why)</span></h3>
+      <div class="facet" id="f-action"></div>
+      <h3>Request <span style="text-transform:none;letter-spacing:0">(what)</span></h3>
+      <div class="facet" id="f-request"></div>
 
-          <div class="filter-grid">
-            <div class="filter-group">
-              <label for="domainSelect" id="domainLabel">Domain</label>
-              <select id="domainSelect" disabled>
-                <option value="">All domains</option>
-              </select>
-            </div>
+      <button class="clear" id="clear">Clear all filters</button>
+    </aside>
 
-            <div class="filter-group">
-              <label for="sortSelect">Sort</label>
-              <select id="sortSelect" disabled>
-                <option value="index">Original order</option>
-                <option value="shortest">Shortest first</option>
-                <option value="longest">Longest first</option>
-                <option value="domain" id="domainSortOption">Domain</option>
-              </select>
-            </div>
-
-            <div class="filter-group">
-              <label for="pageSizeSelect">Page size</label>
-              <select id="pageSizeSelect" disabled>
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-          </div>
-
-          <fieldset class="facet-block" id="actionFacetBlock">
-            <legend id="actionFacetLegend">Action type</legend>
-            <div id="actionFacets" class="facet-list"></div>
-          </fieldset>
-
-          <fieldset class="facet-block" id="keptFacetBlock">
-            <legend>Kept by</legend>
-            <div id="keptFacets" class="facet-list compact"></div>
-          </fieldset>
-
-          <fieldset class="facet-block" id="checkFacetBlock">
-            <legend>Secondary checks must be true</legend>
-            <div id="checkFacets" class="facet-list"></div>
-          </fieldset>
-        </aside>
-
-        <section class="results-panel" aria-label="Examples">
-          <div class="results-toolbar">
-            <div>
-              <p class="toolbar-kicker">Results</p>
-              <h2 id="resultTitle">Loading dataset</h2>
-            </div>
-            <div class="pager">
-              <button id="prevButton" class="icon-button" type="button" aria-label="Previous page" disabled>&lt;</button>
-              <span id="pageLabel">Page 1</span>
-              <button id="nextButton" class="icon-button" type="button" aria-label="Next page" disabled>&gt;</button>
-            </div>
-          </div>
-
-          <div id="status" class="status">Loading CSV...</div>
-          <ol id="resultsList" class="results-list"></ol>
-        </section>
-      </section>
-
-      <section class="json-viewer" id="jsonViewer" aria-label="Filter configuration" hidden>
-        <div class="json-toolbar">
-          <div>
-            <p class="toolbar-kicker">Filter configuration</p>
-            <h2 id="jsonTitle">Loading filter</h2>
-          </div>
-        </div>
-        <div id="jsonStatus" class="status">Loading JSON...</div>
-        <div id="jsonContent" class="doc-content"></div>
-      </section>
+    <main class="main" id="main-examples">
+      <div class="resbar">
+        <span><b id="count">0</b> conversations</span>
+        <span id="pageinfo"></span>
+        <span class="pager">
+          <button id="prev">&larr; Prev</button>
+          <button id="next">Next &rarr;</button>
+        </span>
+      </div>
+      <div id="results"><div class="loading">Loading 9,408 conversations…</div></div>
     </main>
+  </div>
+</div>
 
-    <dialog id="detailDialog" class="detail-dialog">
-      <form method="dialog" class="dialog-frame">
-        <div class="dialog-header">
-          <div>
-            <p id="dialogMeta" class="dialog-meta"></p>
-            <h2 id="dialogTitle">Example</h2>
-          </div>
-          <button class="icon-button" type="submit" aria-label="Close detail">x</button>
+<!-- ============ PROMPTS ============ -->
+<div class="tabpanel" id="panel-prompts" role="tabpanel" aria-labelledby="tab-prompts" hidden>
+  <div class="layout">
+    <aside class="side">
+      <h3>Actions</h3><div class="navlist" id="nav-actions"></div>
+      <h3>Requests</h3><div class="navlist" id="nav-requests"></div>
+      <h3>Domains</h3><div class="navlist" id="nav-domains"></div>
+    </aside>
+    <main class="main">
+      <div class="prompt-head">
+        <h2 id="p-title">—</h2>
+        <p id="p-sub"></p>
+      </div>
+      <pre class="prompt" id="p-body"></pre>
+    </main>
+  </div>
+</div>
+
+<!-- ============ ANALYSIS ============ -->
+<div class="tabpanel" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+  <main class="main">
+    <div class="an">
+      <section>
+        <h2>Actions &times; Requests</h2>
+        <p class="lede">
+          Every conversation is labelled twice by two independent judges: <b>why</b> the person
+          came (the undertaking they are pursuing against an institution) and <b>what</b> they
+          asked the model to produce. Neither judge saw the other's verdict, so a strong cell is
+          a finding about how people use the model — not two codes overlapping by definition.
+        </p>
+        <div class="scale">
+          <span>share of the action's rows</span>
+          <i id="scalebar"></i>
+          <span id="scalemax">0%</span>
         </div>
-        <div id="dialogTags" class="tag-row"></div>
-        <pre id="dialogText" class="dialog-text"></pre>
-      </form>
-    </dialog>
+        <div style="overflow-x:auto"><table class="heat" id="heat"></table></div>
+        <p class="note" id="heatnote"></p>
+      </section>
 
-    <script src="app.js?v=filter-tabs-2" defer></script>
-  </body>
+      <section>
+        <h2>Action distribution</h2>
+        <div class="bars" id="bars-action"></div>
+      </section>
+
+      <section>
+        <h2>Request distribution</h2>
+        <div class="bars" id="bars-request"></div>
+      </section>
+
+      <section>
+        <h2>Domain distribution</h2>
+        <div class="bars" id="bars-domain"></div>
+        <p class="note">
+          Conversations can carry more than one domain label, so domain shares sum past 100%.
+        </p>
+      </section>
+
+      <section>
+        <h2>About this data</h2>
+        <p class="note" id="about"></p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ============ VERIFY ============ -->
+<div class="tabpanel" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify" hidden>
+  <main class="main">
+    <div class="vwrap" id="v-root"><div class="loading">Loading…</div></div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
 </html>
