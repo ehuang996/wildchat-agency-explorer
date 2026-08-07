@@ -15,8 +15,12 @@ they made of the model.
   gate, the general residual filter, and the two labelling passes.
 - **Analysis** — the action × request cross-tab, plus label distributions.
 - **Verify** — a blind agreement check. Eight conversations are shown with
-  candidate labels and no indication of what the model decided; your yes/no
-  answers download as JSONL.
+  candidate labels and no indication of what the model decided. At the end you
+  get a confusion matrix against your own judgment and every disagreement with
+  its conversation; your answers download as JSONL.
+- **Upload** — load a verification JSONL back in and see the same matrix and
+  disagreement list for it. Useful for reviewing someone else's run. The file is
+  read in the browser and never uploaded anywhere.
 
 ## How the labels are produced
 

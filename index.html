@@ -16,6 +16,7 @@
     <button role="tab" id="tab-prompts"  aria-controls="panel-prompts"  aria-selected="false">Prompts</button>
     <button role="tab" id="tab-analysis" aria-controls="panel-analysis" aria-selected="false">Analysis</button>
     <button role="tab" id="tab-verify"   aria-controls="panel-verify"   aria-selected="false">Verify</button>
+    <button role="tab" id="tab-upload"   aria-controls="panel-upload"   aria-selected="false">Upload</button>
   </nav>
 </div>
 
@@ -77,8 +78,8 @@
         <h2>Actions &times; Requests</h2>
         <p class="lede">
           Every conversation is labelled twice by two independent judges: <b>why</b> the person
-          came (the undertaking they are pursuing against an institution) and <b>what</b> they
-          asked the model to produce. Neither judge saw the other's verdict, so a strong cell is
+          is asking (the undertaking they are pursuing against an institution) and <b>what</b>
+          they asked the model to produce. Neither judge saw the other's verdict, so a strong cell is
           a finding about how people use the model — not two codes overlapping by definition.
         </p>
         <div class="scale">
@@ -120,6 +121,13 @@
 <div class="tabpanel" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify" hidden>
   <main class="main">
     <div class="vwrap" id="v-root"><div class="loading">Loading…</div></div>
+  </main>
+</div>
+
+<!-- ============ UPLOAD ============ -->
+<div class="tabpanel" id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" hidden>
+  <main class="main">
+    <div class="vwrap" id="u-root"></div>
   </main>
 </div>
 

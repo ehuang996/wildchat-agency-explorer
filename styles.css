@@ -183,7 +183,7 @@ pre.prompt {
    sidebar and so no .layout, which left .main with auto height — overflow-y never
    created a scrollport, the body scrolled instead, and position:sticky inside had
    nothing to stick to. */
-#panel-verify > .main { height: calc(100vh - 54px); }
+#panel-verify > .main, #panel-upload > .main { height: calc(100vh - 54px); }
 .vwrap { max-width: 800px; }
 .vhead h2 { font-size: 17px; margin: 0 0 4px; }
 .vhead .lede { color: var(--ink-2); margin: 0 0 18px; max-width: 74ch; }
@@ -274,3 +274,52 @@ pre.prompt {
   text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; font-size: 11.5px;
 }
 .vblock .vq + .vq { margin-top: 8px; }
+
+/* ---------- confusion matrix + disagreements (verify and upload) ---------- */
+.vtext.short { max-height: 118px; font-size: 13px; color: var(--ink-2); }
+.vn { color: var(--ink-3); font-weight: 400; font-variant-numeric: tabular-nums; }
+
+.vconf { border-collapse: separate; border-spacing: 3px; margin-top: 8px; }
+.vconf th { font-size: 12px; font-weight: 600; color: var(--ink-3); padding: 4px 10px; text-align: right; }
+.vconf thead th { text-align: center; }
+.vconf td {
+  width: 120px; height: 46px; text-align: center; border-radius: 5px;
+  font-variant-numeric: tabular-nums; font-size: 15px;
+}
+.vconf td.hit { background: var(--action-soft); color: var(--action); }
+.vconf td.miss { background: var(--sunk); color: var(--ink-2); }
+.vconf td .sub { display: block; font-size: 10.5px; opacity: .8; font-variant-numeric: normal; }
+
+.vmiss {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 11px 14px; margin-bottom: 10px;
+}
+.vmiss .vmeta { margin-bottom: 6px; }
+.vmiss .vmeta b { color: var(--ink); font-family: var(--mono); font-size: 12px; }
+.vmiss .vmeta code { margin-left: auto; }
+.verdict { font-size: 11.5px; }
+.verdict.over { color: var(--request); }
+.verdict.under { color: var(--domain); }
+
+/* ---------- upload ---------- */
+.drop {
+  border: 1.5px dashed var(--line-2); border-radius: 10px; background: var(--panel);
+  padding: 40px 24px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.drop p { margin: 0; color: var(--ink-3); font-size: 12.5px; }
+.drop input { display: none; }
+.uerr {
+  background: var(--request-soft); color: var(--request); border-radius: 7px;
+  padding: 10px 13px; font-size: 13px; margin-bottom: 14px;
+}
+.ufile {
+  display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-3);
+  padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--line);
+}
+.ufile b { color: var(--ink); }
+.ufile button {
+  margin-left: auto; font: inherit; font-size: 12px; padding: 4px 11px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); border-radius: 6px;
+}
