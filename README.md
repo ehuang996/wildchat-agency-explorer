@@ -33,8 +33,9 @@ how people use the model rather than two codes overlapping by definition.
 ## What is not here
 
 Every conversation was reviewed for personally identifying information by an
-LLM judge. **2,480 of 11,888 rows were flagged and are excluded from this site
-entirely**, rather than published in redacted form. Only cleared rows appear.
+LLM judge. Of 11,892 rows, **2,484 are withheld and 9,408 are published** — 2,480
+flagged by the reviewer, plus 4 whose review errored and so were never cleared.
+Flagged rows are excluded entirely rather than published in redacted form.
 
 Because advocacy conversations tend to name employers, landlords and officials,
 they are flagged more often — `self_advocacy` is 4.9% of the published subset
