@@ -37,7 +37,7 @@ how people use the model rather than two codes overlapping by definition.
 ## What is not here
 
 Every conversation was reviewed for personally identifying information by an
-LLM judge. Of 11,892 rows, **2,484 are withheld and 9,408 are published** — 2,480
+LLM judge. Of 11,888 rows, **2,484 are withheld and 9,404 are published** — 2,480
 flagged by the reviewer, plus 4 whose review errored and so were never cleared.
 Flagged rows are excluded entirely rather than published in redacted form.
 

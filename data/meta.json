@@ -1,6 +1,6 @@
 {
- "rows": 9408,
- "corpus": 11892,
+ "rows": 9404,
+ "corpus": 11888,
  "withheld_for_pii": 2484,
  "shard_size": 250,
  "shards": 38,
@@ -32,16 +32,16 @@
   "revise"
  ],
  "domain_counts": {
-  "workplace_practice": 3433,
-  "business_income": 2740,
-  "employment_career": 2363,
-  "legal": 1083,
+  "workplace_practice": 3429,
+  "business_income": 2738,
+  "employment_career": 2361,
+  "legal": 1081,
   "finance_tax": 1061,
-  "education": 1010,
+  "education": 1009,
   "healthcare": 344,
   "other": 323,
   "housing": 306,
-  "politics_civic": 151
+  "politics_civic": 150
  },
  "action_counts": {
   "system_navigation": 3785,
