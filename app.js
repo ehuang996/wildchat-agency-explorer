@@ -193,7 +193,7 @@ async function ensurePrompts() {
 }
 
 const SUBS = {
-  actions: 'Stage 03 — judges WHY the user came. 1–3 of 6 codes. Claude Opus 4.8.',
+  actions: 'Stage 03 — judges WHY the person is asking. 1–3 of 6 codes. Claude Opus 4.8.',
   requests: 'Stage 04 — judges WHAT they asked the model to produce. 1–3 of 5 codes. Claude Opus 4.8.',
   domains: 'Stage 02 — the recall gate, nine per-domain cascades, and the general residual filter.',
 };
@@ -338,7 +338,7 @@ function drawVerify() {
   const itemDone = it.questions.every((q) => V.ans.has(q.qid));
 
   const ASK = {
-    action: 'Why did this person come — does the conversation belong under',
+    action: 'Why is this person asking — does the conversation belong under',
     request: 'What did they ask the model to produce — does it belong under',
     domain: 'Which institutional domain — does it belong under',
   };
