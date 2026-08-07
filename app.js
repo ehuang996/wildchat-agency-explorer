@@ -281,14 +281,7 @@ function drawAnalysis() {
     `${nf(S.meta.withheld_for_pii)} conversations are withheld from browsing because a GPT-4o-mini ` +
     `reviewer flagged them as containing information that could identify a real person; they are ` +
     `excluded from publication entirely rather than shown in redacted form, but they are still ` +
-    `counted here. That matters, because the withheld rows are not a random sample \u2014 ` +
-    `conversations contesting a decision tend to name employers, landlords and officials, so they ` +
-    `are flagged more often. Computing these distributions over the published subset alone would ` +
-    `understate self-advocacy by roughly a third. ` +
-    `Of ${nf(S.meta.corpus)} conversations in the corpus, ${nf(S.meta.corpus - A.n)} are absent here: ` +
-    `the judge's provider refused to label them on content-filter grounds. ` +
-    `Source corpus: WildChat. Domain labels come from nine per-domain weak-to-strong cascades plus ` +
-    `a general residual filter; action and request labels from two independent Claude Opus 4.8 passes.`;
+    `counted here.`;
 }
 
 function bars(sel, keys, counts, total) {
