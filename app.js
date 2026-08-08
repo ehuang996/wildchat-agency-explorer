@@ -48,9 +48,7 @@ for (const id of TABS) {
   S.index = index;
   for (const row of S.index) row._s = row.u.toLowerCase();
 
-  $('#brandsub').textContent =
-    `${nf(meta.analysis.n)} conversations analysed · ${nf(meta.rows)} browsable · ` +
-    `${nf(meta.withheld_for_pii)} withheld by the PII gate`;
+  $('#brandsub').textContent = `${nf(meta.rows)} conversations`;
 
   buildFacet('#f-domain', meta.domains, meta.domain_counts, S.domain);
   buildFacet('#f-action', meta.actions, meta.action_counts, S.action);
@@ -241,12 +239,8 @@ function drawAnalysis() {
   bars('#bars-domain', m.domains, m.domain_counts, A.n);
 
   $('#about').innerHTML =
-    `<b>The figures on this page cover the whole experiment: ${nf(A.n)} conversations, ` +
-    `not only the ${nf(S.meta.rows)} browsable in the Examples tab.</b> ` +
-    `${nf(S.meta.withheld_for_pii)} conversations are withheld from browsing because a GPT-4o-mini ` +
-    `reviewer flagged them as containing information that could identify a real person; they are ` +
-    `excluded from publication entirely rather than shown in redacted form, but they are still ` +
-    `counted here. Domain labels come from the filtering pipeline; action labels from an ` +
+    `<b>The figures on this page cover the whole experiment: ${nf(A.n)} conversations.</b> ` +
+    `Domain labels come from the filtering pipeline; action labels from an ` +
     `independent Claude Opus 4.8 pass shown only the user turn, never the reply.`;
 }
 
@@ -444,7 +438,7 @@ function drawUpload(parsed, filename) {
     </div>
     ${reportHTML(rows)}
     ${resolved < n ? `<p class="note">Conversation text shown for ${resolved} of ${n} labels;
-      the rest are not in the published set (they may be rows withheld by the PII gate).</p>` : ''}`;
+      the rest are not in the published set.</p>` : ''}`;
 
   $('#u-clear').addEventListener('click', () => drawDrop());
 }
