@@ -169,7 +169,7 @@ async function ensurePrompts() {
 }
 
 const SUBS = {
-  actions: 'What the user asked the model to do — 6 codes, one or more per conversation, no upper cap. Claude Opus 4.8, independent of the domain pipeline.',
+  actions: 'What the user asked the model to do — 7 codes, one or more per conversation, no upper cap. Judged BLIND by Claude Opus 4.8: only the user turn is shown, never the reply.',
 };
 
 function showPrompt(key, p, btn) {
@@ -247,7 +247,7 @@ function drawAnalysis() {
     `reviewer flagged them as containing information that could identify a real person; they are ` +
     `excluded from publication entirely rather than shown in redacted form, but they are still ` +
     `counted here. Domain labels come from the filtering pipeline; action labels from an ` +
-    `independent Claude Opus 4.8 pass over the user turn and reply.`;
+    `independent Claude Opus 4.8 pass shown only the user turn, never the reply.`;
 }
 
 function bars(sel, keys, counts, total) {

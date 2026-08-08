@@ -23,11 +23,11 @@ they made of the model.
 | Stage | What it decides |
 |---|---|
 | Domain | A recall gate, then nine parallel per-domain weak-to-strong cascades, then a general residual filter. |
-| Action | what the user asked the model to do — compose, revise, inform, advise, search, or other; one or more per conversation, no upper cap. |
+| Action | what the user asked the model to do — compose, revise, inform, explain, advise, search, or other; one or more per conversation, no upper cap. |
 
-Actions are annotated by a Claude Opus 4.8 pass independent of the domain
-pipeline, so the domain × action cross-tab relates two separately produced
-labels.
+Actions are annotated by a Claude Opus 4.8 pass that is shown only the user
+turn — never the assistant reply — and is independent of the domain pipeline,
+so the domain × action cross-tab relates two separately produced labels.
 
 ## What is not here
 
