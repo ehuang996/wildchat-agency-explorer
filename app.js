@@ -316,11 +316,10 @@ function reportHTML(rows) {
 }
 
 /* ---------------- upload ----------------
-   Load a verification JSONL back in and see it against Opus. Same matrix and
-   disagreement list as the Verify score screen, so a file someone else produced
-   reads exactly like your own run. Conversation text is recovered by matching the
-   record's hash against the published index, which means the report works for any
-   question set, not just the one currently shipped in verify.json. */
+   Load a verification JSONL (from an earlier rating round) and see it against the
+   stored labels: confusion matrix plus the disagreement list. Conversation text is
+   recovered by matching each record's hash against the published index, so files
+   from any question set render. */
 
 let uploadReady = false;
 function ensureUpload() {
@@ -333,8 +332,8 @@ function drawDrop(error) {
   $('#u-root').innerHTML = `
     <div class="vhead"><h2>Upload verification answers</h2></div>
     <p class="lede">
-      Drop the JSONL downloaded from the Verify tab. Nothing is uploaded anywhere —
-      the file is read in your browser.
+      Drop a verification JSONL from an earlier rating round. Nothing is uploaded
+      anywhere — the file is read in your browser.
     </p>
     ${error ? `<div class="uerr">${esc(error)}</div>` : ''}
     <label class="drop" id="u-drop">
@@ -398,7 +397,7 @@ function parseAnswers(text) {
   }
   if (!answers.length) {
     throw new Error(`No usable answer records found in ${lines.length} line(s). ` +
-      'Expected the JSONL downloaded from the Verify tab.');
+      'Expected a verification JSONL from a rating round.');
   }
   return { answers, summary, bad, lines: lines.length };
 }

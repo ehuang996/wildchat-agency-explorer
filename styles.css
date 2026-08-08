@@ -117,7 +117,6 @@ nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: 
 }
 .tag.d { background: var(--domain-soft); color: var(--domain); }
 .tag.a { background: var(--action-soft); color: var(--action); }
-.tag.r { background: var(--request-soft); color: var(--request); }
 .utext { white-space: pre-wrap; word-break: break-word; }
 mark { background: #ffe9a8; color: inherit; padding: 0 2px; border-radius: 2px; }
 @media (prefers-color-scheme: dark) { mark { background: #6b5518; color: #fff3d0; } }
