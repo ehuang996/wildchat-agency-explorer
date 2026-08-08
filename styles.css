@@ -173,7 +173,7 @@ pre.prompt {
    sidebar and so no .layout, which left .main with auto height — overflow-y never
    created a scrollport, the body scrolled instead, and position:sticky inside had
    nothing to stick to. */
-#panel-verify > .main, #panel-upload > .main { height: calc(100vh - 54px); }
+#panel-upload > .main { height: calc(100vh - 54px); }
 .vwrap { max-width: 800px; }
 .vhead h2 { font-size: 17px; margin: 0 0 4px; }
 .vhead .lede { color: var(--ink-2); margin: 0 0 18px; max-width: 74ch; }

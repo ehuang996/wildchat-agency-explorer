@@ -15,7 +15,6 @@
     <button role="tab" id="tab-examples" aria-controls="panel-examples" aria-selected="true">Examples</button>
     <button role="tab" id="tab-prompts"  aria-controls="panel-prompts"  aria-selected="false">Prompts</button>
     <button role="tab" id="tab-analysis" aria-controls="panel-analysis" aria-selected="false">Analysis</button>
-    <button role="tab" id="tab-verify"   aria-controls="panel-verify"   aria-selected="false">Verify</button>
     <button role="tab" id="tab-upload"   aria-controls="panel-upload"   aria-selected="false">Upload</button>
   </nav>
 </div>
@@ -30,10 +29,8 @@
 
       <h3>Domain</h3>
       <div class="facet" id="f-domain"></div>
-      <h3>Action <span style="text-transform:none;letter-spacing:0">(why)</span></h3>
+      <h3>Action</h3>
       <div class="facet" id="f-action"></div>
-      <h3>Request <span style="text-transform:none;letter-spacing:0">(what)</span></h3>
-      <div class="facet" id="f-request"></div>
 
       <button class="clear" id="clear">Clear all filters</button>
     </aside>
@@ -57,7 +54,6 @@
   <div class="layout">
     <aside class="side">
       <h3>Actions</h3><div class="navlist" id="nav-actions"></div>
-      <h3>Requests</h3><div class="navlist" id="nav-requests"></div>
     </aside>
     <main class="main">
       <div class="prompt-head">
@@ -74,14 +70,15 @@
   <main class="main">
     <div class="an">
       <section>
-        <h2>Actions &times; Requests</h2>
+        <h2>Domains &times; Actions</h2>
         <p class="lede">
-          Every conversation is labelled twice by two independent judges: <b>why</b> the person
-          is asking (the undertaking they are pursuing against an institution) and <b>what</b>
-          they asked the model to produce.
+          Every conversation carries one or more institutional <b>domains</b> from the filtering
+          pipeline and one or more <b>actions</b> — what the user asked the model to do — from an
+          independent labelling pass. Each cell is the share of a domain's conversations whose
+          actions include that code.
         </p>
         <div class="scale">
-          <span>share of the action's rows</span>
+          <span>share of the domain's rows</span>
           <i id="scalebar"></i>
           <span id="scalemax">0%</span>
         </div>
@@ -92,11 +89,6 @@
       <section>
         <h2>Action distribution</h2>
         <div class="bars" id="bars-action"></div>
-      </section>
-
-      <section>
-        <h2>Request distribution</h2>
-        <div class="bars" id="bars-request"></div>
       </section>
 
       <section>
@@ -112,13 +104,6 @@
         <p class="note" id="about"></p>
       </section>
     </div>
-  </main>
-</div>
-
-<!-- ============ VERIFY ============ -->
-<div class="tabpanel" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify" hidden>
-  <main class="main">
-    <div class="vwrap" id="v-root"><div class="loading">Loading…</div></div>
   </main>
 </div>
 

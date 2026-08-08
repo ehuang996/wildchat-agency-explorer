@@ -9,30 +9,25 @@ they made of the model.
 
 ## Tabs
 
-- **Examples** — all 9,408 published conversations, searchable, filterable by
-  domain / action / request, 50 per page. Only the user turn is shown;
-  assistant responses are not published.
-- **Prompts** — the two labelling prompts (action and request).
-- **Analysis** — the action × request cross-tab, plus label distributions.
-- **Verify** — a blind agreement check. Eight conversations are shown with
-  candidate labels and no indication of what the model decided. At the end you
-  get a confusion matrix against your own judgment and every disagreement with
-  its conversation; your answers download as JSONL.
-- **Upload** — load a verification JSONL back in and see the same matrix and
-  disagreement list for it. Useful for reviewing someone else's run. The file is
-  read in the browser and never uploaded anywhere.
+- **Examples** — all published conversations, searchable, filterable by
+  domain / action, 50 per page. Only the user turn is shown; assistant
+  responses are not published.
+- **Prompts** — the action labelling prompt.
+- **Analysis** — the domain × action cross-tab, plus label distributions.
+- **Upload** — load a verification JSONL and see a confusion matrix and
+  disagreement list against the stored labels. The file is read in the browser
+  and never uploaded anywhere.
 
 ## How the labels are produced
 
 | Stage | What it decides |
 |---|---|
 | Domain | A recall gate, then nine parallel per-domain weak-to-strong cascades, then a general residual filter. |
-| Action (why) | 1–3 of 6 codes: the real-world undertaking the person is pursuing. |
-| Request (what) | 1–3 of 5 codes: the deliverable they asked the model for. |
+| Action | what the user asked the model to do — compose, revise, inform, advise, search, or other; one or more per conversation, no upper cap. |
 
-Action and request are annotated in two **independent** passes — neither judge
-sees the other's verdict — so a strong cell in the cross-tab is a finding about
-how people use the model rather than two codes overlapping by definition.
+Actions are annotated by a Claude Opus 4.8 pass independent of the domain
+pipeline, so the domain × action cross-tab relates two separately produced
+labels.
 
 ## What is not here
 
