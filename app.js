@@ -7,10 +7,9 @@
    instant. Only the user turn is published; assistant responses are not part of
    the payload.
 
-   Two populations, deliberately: only PII-cleared conversations are browsable, but
-   Analysis counts the whole experiment (meta.analysis). The withheld rows are not a
-   random sample, so analysing the published subset alone would understate the very
-   findings the paper reports. */
+   The Examples tab pages through the published rows (meta.rows); the Analysis
+   tab reports the whole experiment (meta.analysis), which is the population the
+   paper's figures describe. */
 
 const PAGE = 50;
 const S = {
