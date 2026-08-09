@@ -1,8 +1,8 @@
 {
- "rows": 9350,
- "corpus": 12193,
- "unlabelled": 60,
- "withheld_for_pii": 2783,
+ "rows": 9044,
+ "corpus": 11856,
+ "unlabelled": 59,
+ "withheld_for_pii": 2753,
  "domains": [
   "workplace_practice",
   "business_income",
@@ -31,22 +31,22 @@
   "legal": 1185,
   "finance_tax": 1003,
   "education": 859,
-  "other": 721,
+  "other": 415,
   "housing": 321,
   "healthcare": 299,
   "politics_civic": 155
  },
  "action_counts": {
-  "compose": 3164,
-  "inform": 2855,
-  "explain": 260,
-  "advise": 2400,
-  "revise": 621,
-  "search": 499,
-  "other": 93
+  "compose": 3130,
+  "inform": 2688,
+  "explain": 226,
+  "advise": 2338,
+  "revise": 618,
+  "search": 470,
+  "other": 92
  },
  "analysis": {
-  "n": 12133,
+  "n": 11797,
   "domain_counts": {
    "workplace_practice": 4788,
    "business_income": 3281,
@@ -54,19 +54,19 @@
    "legal": 1669,
    "finance_tax": 1299,
    "education": 1196,
-   "other": 814,
+   "other": 478,
    "housing": 470,
    "healthcare": 387,
    "politics_civic": 227
   },
   "action_counts": {
-   "compose": 4457,
-   "inform": 3316,
-   "explain": 291,
-   "advise": 2805,
-   "revise": 1203,
-   "search": 597,
-   "other": 138
+   "compose": 4418,
+   "inform": 3133,
+   "explain": 253,
+   "advise": 2739,
+   "revise": 1199,
+   "search": 565,
+   "other": 137
   },
   "crosstab": {
    "workplace_practice|compose": 2343,
@@ -132,13 +132,13 @@
    "politics_civic|revise": 29,
    "politics_civic|search": 8,
    "politics_civic|other": 7,
-   "other|compose": 126,
-   "other|inform": 408,
-   "other|explain": 77,
-   "other|advise": 183,
-   "other|revise": 20,
-   "other|search": 70,
-   "other|other": 2
+   "other|compose": 87,
+   "other|inform": 225,
+   "other|explain": 39,
+   "other|advise": 117,
+   "other|revise": 16,
+   "other|search": 38,
+   "other|other": 1
   }
  }
 }
