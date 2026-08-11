@@ -23,7 +23,7 @@ const pretty = (s) => s.replace(/_/g, ' ');
 const nf = (n) => n.toLocaleString('en-US');
 
 /* ---------------- tabs ---------------- */
-const TABS = ['examples', 'prompts', 'analysis', 'upload'];
+const TABS = ['examples', 'prompts', 'analysis', 'rate', 'upload'];
 for (const id of TABS) {
   document.getElementById('tab-' + id).addEventListener('click', () => {
     for (const other of TABS) {
@@ -33,6 +33,7 @@ for (const id of TABS) {
     }
     if (id === 'analysis') drawAnalysis();
     if (id === 'prompts') ensurePrompts();
+    if (id === 'rate') ensureRate();
     if (id === 'upload') ensureUpload();
   });
 }
@@ -440,4 +441,284 @@ function drawUpload(parsed, filename) {
       the rest are not in the published set.</p>` : ''}`;
 
   $('#u-clear').addEventListener('click', () => drawDrop());
+}
+
+/* ---------------- Rate 100 ----------------
+   A fixed, seeded 100-conversation set with labels hidden. The visitor assigns
+   domains (9 + other) and actions (6 + other), then sees agreement with the
+   pipeline's Opus 4.8 labels: per-facet scores, label-level 2x2 confusion
+   matrices, an item-by-item comparison view, and a JSON download. Everything is
+   client-side; progress persists in localStorage. */
+
+const RATE_N = 100, RATE_SEED = 11997, RATE_LS = 'sa_rate_v1';
+let rateReady = false;
+const R = { items: [], cursor: 0, answers: new Map(), view: 'intro', revFilter: 'diff' };
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rateItems() {
+  // Deterministic: sort by hash, seeded shuffle, first 100. Same set for everyone.
+  const rows = [...S.index].sort((x, y) => (x.h < y.h ? -1 : 1));
+  const rnd = mulberry32(RATE_SEED);
+  for (let i = rows.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+  }
+  return rows.slice(0, RATE_N);
+}
+
+function ensureRate() {
+  if (!rateReady) {
+    rateReady = true;
+    R.items = rateItems();
+    try {
+      const saved = JSON.parse(localStorage.getItem(RATE_LS) || 'null');
+      if (saved && saved.answers) {
+        for (const it of R.items) {
+          const a = saved.answers[it.h];
+          if (a) R.answers.set(it.h, { d: new Set(a.d), a: new Set(a.a) });
+        }
+        R.cursor = Math.min(saved.cursor || 0, RATE_N - 1);
+        if (R.answers.size >= RATE_N) R.view = 'results';
+        else if (R.answers.size) R.view = 'item';
+      }
+    } catch { /* fresh start */ }
+  }
+  drawRate();
+}
+
+function saveRate() {
+  const answers = {};
+  for (const [h, v] of R.answers) answers[h] = { d: [...v.d], a: [...v.a] };
+  localStorage.setItem(RATE_LS, JSON.stringify({ answers, cursor: R.cursor }));
+}
+
+function drawRate() {
+  const host = $('#r-root');
+  if (R.view === 'intro') return drawRateIntro(host);
+  if (R.view === 'item') return drawRateItem(host);
+  if (R.view === 'results') return drawRateResults(host);
+  if (R.view === 'review') return drawRateReview(host);
+}
+
+function drawRateIntro(host) {
+  const done = R.answers.size;
+  host.innerHTML = `<div class="rwrap">
+    <h2>Rate 100 conversations yourself</h2>
+    <p class="lede">You will see the same fixed set of 100 published conversations with their
+      labels hidden. For each one, pick every domain that applies (or <b>other</b> if none do)
+      and every action (or <b>other</b>). At the end you will see how your judgments compare
+      with the pipeline's Claude&nbsp;Opus&nbsp;4.8 labels, including 2×2 confusion matrices,
+      an item-by-item comparison, and a downloadable JSON of your answers.</p>
+    <p class="rnote">Nothing is uploaded anywhere; your progress is saved in this browser only.</p>
+    <div class="rnav">
+      <button class="primary" id="r-start">${done ? `Resume (${done}/${RATE_N} done)` : 'Start'}</button>
+      ${done ? '<button id="r-reset">Start over</button>' : ''}
+    </div>
+  </div>`;
+  $('#r-start').addEventListener('click', () => { R.view = 'item'; drawRate(); });
+  const rs = $('#r-reset');
+  if (rs) rs.addEventListener('click', rateReset);
+}
+
+function rateReset() {
+  R.answers.clear(); R.cursor = 0; R.view = 'intro';
+  localStorage.removeItem(RATE_LS);
+  drawRate();
+}
+
+function toggleLabel(set, label) {
+  // `other` means "none of the listed ones fit" in both facets, so it never combines.
+  if (label === 'other') {
+    if (set.has('other')) set.delete('other');
+    else { set.clear(); set.add('other'); }
+  } else {
+    set.delete('other');
+    if (set.has(label)) set.delete(label); else set.add(label);
+  }
+}
+
+function drawRateItem(host) {
+  const it = R.items[R.cursor];
+  if (!R.answers.has(it.h)) R.answers.set(it.h, { d: new Set(), a: new Set() });
+  const ans = R.answers.get(it.h);
+
+  const chiprow = (cls, labels, set) => `<div class="rchips ${cls}">` +
+    labels.map((l) =>
+      `<button type="button" data-l="${l}" aria-pressed="${set.has(l)}">${esc(pretty(l))}</button>`
+    ).join('') + '</div>';
+
+  host.innerHTML = `<div class="rwrap">
+    <div class="resbar"><span><b>${R.cursor + 1}</b> of ${RATE_N}</span>
+      <span>${R.answers.size} answered</span></div>
+    <div class="rprog"><i style="width:${(R.cursor / RATE_N) * 100}%"></i></div>
+    <div class="rtext">${esc(it.u)}</div>
+    <div class="rgroup"><h3>Domains — pick every one that applies</h3>
+      ${chiprow('dd', S.meta.domains, ans.d)}</div>
+    <div class="rgroup"><h3>Actions — what did the user ask the model to do?</h3>
+      ${chiprow('aa', S.meta.actions, ans.a)}</div>
+    <div class="rnav">
+      <button id="r-back" ${R.cursor === 0 ? 'disabled' : ''}>&larr; Back</button>
+      <button class="primary" id="r-next" ${ans.d.size && ans.a.size ? '' : 'disabled'}>
+        ${R.cursor === RATE_N - 1 ? 'Finish' : 'Next →'}</button>
+      <span class="rnote">pick at least one in each group · <b>other</b> stands alone</span>
+    </div>
+  </div>`;
+
+  host.querySelectorAll('.rchips.dd button').forEach((b) =>
+    b.addEventListener('click', () => { toggleLabel(ans.d, b.dataset.l); saveRate(); drawRate(); }));
+  host.querySelectorAll('.rchips.aa button').forEach((b) =>
+    b.addEventListener('click', () => { toggleLabel(ans.a, b.dataset.l); saveRate(); drawRate(); }));
+  $('#r-back').addEventListener('click', () => { R.cursor--; saveRate(); drawRate(); });
+  $('#r-next').addEventListener('click', () => {
+    if (R.cursor === RATE_N - 1) { R.view = 'results'; }
+    else R.cursor++;
+    saveRate(); drawRate();
+  });
+}
+
+/* Scores + label-level 2x2 per facet. Truth = pipeline labels in the index
+   (domains as released; actions from the Opus 4.8 annotation pass). */
+function rateReport() {
+  const facet = (labels, yours, truth) => {
+    let exact = 0, overlap = 0, tp = 0, fp = 0, fn = 0, tn = 0;
+    const per = [];
+    for (const it of R.items) {
+      const y = yours(it), t = new Set(truth(it));
+      const ys = new Set(y);
+      const eq = ys.size === t.size && [...ys].every((l) => t.has(l));
+      const ov = [...ys].some((l) => t.has(l));
+      if (eq) exact++;
+      if (ov) overlap++;
+      for (const l of labels) {
+        const a = ys.has(l), b = t.has(l);
+        if (a && b) tp++; else if (a && !b) fp++;
+        else if (!a && b) fn++; else tn++;
+      }
+      per.push({ hash: it.h, eq, yours: [...ys], opus: [...t] });
+    }
+    return { exact, overlap, tp, fp, fn, tn, per };
+  };
+  const dTruth = (it) => it.d;
+  const aTruth = (it) => it.a;
+  return {
+    domain: facet(S.meta.domains, (it) => R.answers.get(it.h).d, dTruth),
+    action: facet(S.meta.actions, (it) => R.answers.get(it.h).a, aTruth),
+  };
+}
+
+function matrixHTML(name, m) {
+  return `<div><h3>${name} — label-level 2×2</h3>
+    <table class="vconf">
+      <thead><tr><th></th><th>Opus assigned</th><th>Opus did not</th></tr></thead>
+      <tbody>
+        <tr><th>You assigned</th>
+          <td class="hit">${nf(m.tp)}<span class="sub">agreed yes</span></td>
+          <td class="miss">${nf(m.fp)}<span class="sub">you only</span></td></tr>
+        <tr><th>You did not</th>
+          <td class="miss">${nf(m.fn)}<span class="sub">Opus only</span></td>
+          <td class="hit">${nf(m.tn)}<span class="sub">agreed no</span></td></tr>
+      </tbody>
+    </table></div>`;
+}
+
+function drawRateResults(host) {
+  const rep = rateReport();
+  const pct = (n) => ((n / RATE_N) * 100).toFixed(0) + '%';
+  host.innerHTML = `<div class="rwrap">
+    <h2>Your 100 vs Claude Opus 4.8</h2>
+    <div class="rscore">
+      <div class="box"><div class="big">${pct(rep.domain.exact)}</div>
+        <div class="lbl">domains: exact set match (${rep.domain.exact}/${RATE_N}); any overlap ${pct(rep.domain.overlap)}</div></div>
+      <div class="box"><div class="big">${pct(rep.action.exact)}</div>
+        <div class="lbl">actions: exact set match (${rep.action.exact}/${RATE_N}); any overlap ${pct(rep.action.overlap)}</div></div>
+    </div>
+    <div class="rmats">${matrixHTML('Domains', rep.domain)}${matrixHTML('Actions', rep.action)}</div>
+    <p class="rnote">Matrix cells count label-level decisions: ${RATE_N}×${S.meta.domains.length}
+      for domains, ${RATE_N}×${S.meta.actions.length} for actions.</p>
+    <div class="rnav">
+      <button class="primary" id="r-compare">Compare your results</button>
+      <button id="r-download">Download JSON</button>
+      <button id="r-again">Start over</button>
+    </div>
+  </div>`;
+  $('#r-compare').addEventListener('click', () => { R.view = 'review'; drawRate(); });
+  $('#r-download').addEventListener('click', () => rateDownload(rep));
+  $('#r-again').addEventListener('click', rateReset);
+}
+
+function rateDownload(rep) {
+  const items = R.items.map((it) => {
+    const a = R.answers.get(it.h);
+    return {
+      conversation_hash: it.h,
+      user_input: it.u,
+      your_domains: [...a.d], opus_domains: it.d,
+      your_actions: [...a.a], opus_actions: it.a,
+    };
+  });
+  const out = {
+    generated_at: new Date().toISOString(),
+    set: { seed: RATE_SEED, n: RATE_N, source: 'published rows, seeded shuffle' },
+    summary: {
+      domains: { exact: rep.domain.exact, overlap: rep.domain.overlap,
+                 matrix: { both_yes: rep.domain.tp, you_only: rep.domain.fp, opus_only: rep.domain.fn, both_no: rep.domain.tn } },
+      actions: { exact: rep.action.exact, overlap: rep.action.overlap,
+                 matrix: { both_yes: rep.action.tp, you_only: rep.action.fp, opus_only: rep.action.fn, both_no: rep.action.tn } },
+    },
+    items,
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rate100_vs_opus.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function drawRateReview(host) {
+  const rep = rateReport();
+  const rows = R.items.map((it, i) => {
+    const d = rep.domain.per[i], a = rep.action.per[i];
+    return { it, d, a, diff: !(d.eq && a.eq) };
+  });
+  const shown = R.revFilter === 'diff' ? rows.filter((r) => r.diff) : rows;
+
+  const chips = (labels, mine, theirs) => labels.map((l) => {
+    const cls = theirs.includes(l) ? '' : ' x';
+    return `<span class="tag d${cls}">${esc(pretty(l))}</span>`;
+  }).join('');
+  const chipsA = (labels, theirs) => labels.map((l) => {
+    const cls = theirs.includes(l) ? '' : ' x';
+    return `<span class="tag a${cls}">${esc(pretty(l))}</span>`;
+  }).join('');
+
+  host.innerHTML = `<div class="rwrap">
+    <div class="resbar">
+      <span><b>${shown.length}</b> of ${RATE_N} shown</span>
+      <span>
+        <button id="r-fdiff" ${R.revFilter === 'diff' ? 'disabled' : ''}>Disagreements</button>
+        <button id="r-fall"  ${R.revFilter === 'all' ? 'disabled' : ''}>All 100</button>
+        <button id="r-backres">&larr; Back to results</button>
+      </span>
+    </div>
+    ${shown.map(({ it, d, a }) => `
+      <article class="rrev">
+        <div class="txt">${esc(it.u)}</div>
+        <div class="who">You picked ${d.eq && a.eq ? '<span class="rok">— full agreement</span>' : ''}</div>
+        <div>${chips(d.yours, d.yours, d.opus)}${chipsA(a.yours, a.opus)}</div>
+        <div class="who">Opus 4.8 picked</div>
+        <div>${chips(d.opus, d.opus, d.yours)}${chipsA(a.opus, a.yours)}</div>
+      </article>`).join('') || '<div class="empty">Nothing to show.</div>'}
+  </div>`;
+  $('#r-fdiff').addEventListener('click', () => { R.revFilter = 'diff'; drawRate(); });
+  $('#r-fall').addEventListener('click', () => { R.revFilter = 'all'; drawRate(); });
+  $('#r-backres').addEventListener('click', () => { R.view = 'results'; drawRate(); });
 }

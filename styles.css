@@ -312,3 +312,43 @@ pre.prompt {
   margin-left: auto; font: inherit; font-size: 12px; padding: 4px 11px; cursor: pointer;
   border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); border-radius: 6px;
 }
+
+/* ---------- Rate 100 ---------- */
+.rfull { height: calc(100vh - 54px); }
+.rwrap { max-width: 940px; margin: 0 auto; }
+.rprog { height: 6px; background: var(--sunk); border-radius: 3px; margin: 10px 0 18px; overflow: hidden; }
+.rprog i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.rtext {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 18px; margin: 12px 0 18px; white-space: pre-wrap; line-height: 1.55;
+  max-height: 38vh; overflow-y: auto;
+}
+.rgroup h3 { margin: 14px 0 7px; font-size: 13px; color: var(--ink-2); }
+.rchips { display: flex; flex-wrap: wrap; gap: 7px; }
+.rchips button {
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink);
+  border-radius: 999px; padding: 6px 13px; font-size: 13px; cursor: pointer;
+}
+.rchips button:hover { border-color: var(--ink-3); }
+.rchips.dd button[aria-pressed="true"] { background: var(--domain); border-color: var(--domain); color: #fff; }
+.rchips.aa button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rnav { display: flex; gap: 10px; align-items: center; margin-top: 20px; }
+.rnav button {
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink);
+  border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
+}
+.rnav button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rnav button:disabled { opacity: .45; cursor: not-allowed; }
+.rnote { color: var(--ink-3); font-size: 12.5px; margin-top: 8px; }
+.rscore { display: flex; gap: 26px; flex-wrap: wrap; margin: 18px 0; }
+.rscore .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 20px; }
+.rscore .big { font-size: 34px; font-weight: 700; }
+.rscore .lbl { color: var(--ink-3); font-size: 12.5px; }
+.rmats { display: flex; gap: 40px; flex-wrap: wrap; }
+.rrev { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 12px 15px; margin-bottom: 12px; }
+.rrev .txt { white-space: pre-wrap; font-size: 13.5px; color: var(--ink-2); margin-bottom: 9px; max-height: 12em; overflow-y: auto; }
+.rrev .who { font-size: 11.5px; color: var(--ink-3); margin: 6px 0 3px; text-transform: uppercase; letter-spacing: .04em; }
+.rrev .tag.x { outline: 2px solid #c4574a; }
+.rrev .tag.miss { opacity: .55; text-decoration: line-through; }
+.rok { color: #196b24; font-weight: 600; }
+.rbad { color: #c4574a; font-weight: 600; }
