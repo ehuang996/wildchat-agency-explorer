@@ -1,7 +1,10 @@
 /* WildChat Structural-Agency Explorer
-   Four tabs over a static payload: Examples (search + paginate the published rows),
+   Five tabs over a static payload: Examples (search + paginate the published rows),
    Prompts (the action labelling prompt), Analysis (domains x actions heatmap),
-   Upload (read a verification JSONL back in and see it against the stored labels).
+   Rate 100 (label a fixed hidden-label set and score against the pipeline),
+   Upload (read a Rate-100 JSON export or a legacy verification JSONL back in).
+   Non-English rows carry a stored English translation ("lang"/"tr"), shown
+   under the original text wherever the row appears.
 
    index.json carries labels + the full user turn, so search and filtering are
    instant. Only the user turn is published; assistant responses are not part of
@@ -136,7 +139,8 @@ function render() {
     ].join('');
     el.innerHTML =
       `<div class="meta"><code>${esc(r.h)}</code><span>${esc(r.t)}</span>${tags}</div>
-       <div class="utext">${highlight(r.u, S.q)}</div>`;
+       <div class="utext">${highlight(r.u, S.q)}</div>` +
+      (r.tr ? `<div class="rtrans"><b>Translation (${esc(r.lang)})</b>${esc(r.tr)}</div>` : '');
     frag.appendChild(el);
   }
   host.innerHTML = '';
@@ -324,16 +328,17 @@ function ensureUpload() {
 
 function drawDrop(error) {
   $('#u-root').innerHTML = `
-    <div class="vhead"><h2>Upload verification answers</h2></div>
+    <div class="vhead"><h2>Upload results</h2></div>
     <p class="lede">
-      Drop a verification JSONL from an earlier rating round. Nothing is uploaded
-      anywhere — the file is read in your browser.
+      Drop a <b>Rate-100 JSON export</b> (from the Rate&nbsp;100 tab — yours or someone
+      else's) or a legacy verification JSONL. Nothing is uploaded anywhere — the file
+      is read in your browser.
     </p>
     ${error ? `<div class="uerr">${esc(error)}</div>` : ''}
     <label class="drop" id="u-drop">
       <input type="file" id="u-file" accept=".jsonl,.ndjson,.json,.txt">
       <h3>Choose a file, or drop it here</h3>
-      <p>verification_*.jsonl</p>
+      <p>rate100_vs_opus.json · verification_*.jsonl</p>
     </label>`;
 
   const zone = $('#u-drop'), input = $('#u-file');
@@ -355,12 +360,82 @@ function readFile(file) {
   fr.onerror = () => drawDrop('Could not read that file.');
   fr.onload = () => {
     try {
-      drawUpload(parseAnswers(fr.result), file.name);
+      const text = String(fr.result);
+      // Rate-100 export: a single JSON object with an items array.
+      if (text.trim().startsWith('{')) {
+        let obj = null;
+        try { obj = JSON.parse(text); } catch { obj = null; }
+        if (obj && Array.isArray(obj.items) && obj.items.length) {
+          drawRateFile(obj, file.name);
+          return;
+        }
+      }
+      drawUpload(parseAnswers(text), file.name);
     } catch (err) {
       drawDrop(err.message);
     }
   };
   fr.readAsText(file);
+}
+
+/* A Rate-100 JSON export, re-rendered: scores and matrices are recomputed from
+   the item records rather than trusted from the file's own summary block. */
+function drawRateFile(obj, filename) {
+  const items = obj.items.filter((it) =>
+    Array.isArray(it.your_domains) && Array.isArray(it.opus_domains) &&
+    Array.isArray(it.your_actions) && Array.isArray(it.opus_actions));
+  if (!items.length) { drawDrop('That file has no usable Rate-100 items.'); return; }
+  const N = items.length;
+
+  const facet = (labels, yk, ok) => {
+    let exact = 0, overlap = 0, tp = 0, fp = 0, fn = 0, tn = 0;
+    const per = [];
+    for (const it of items) {
+      const ys = new Set(it[yk]), t = new Set(it[ok]);
+      const eq = ys.size === t.size && [...ys].every((l) => t.has(l));
+      if (eq) exact++;
+      if ([...ys].some((l) => t.has(l))) overlap++;
+      for (const l of labels) {
+        const a = ys.has(l), b = t.has(l);
+        if (a && b) tp++; else if (a && !b) fp++;
+        else if (!a && b) fn++; else tn++;
+      }
+      per.push(eq);
+    }
+    return { exact, overlap, tp, fp, fn, tn, per };
+  };
+  const dom = facet(S.meta.domains, 'your_domains', 'opus_domains');
+  const act = facet(S.meta.actions, 'your_actions', 'opus_actions');
+  const pct = (n) => ((n / N) * 100).toFixed(0) + '%';
+  const chips = (list, other, cls) => list.map((l) =>
+    `<span class="tag ${cls}${other.includes(l) ? '' : ' x'}">${esc(pretty(l))}</span>`).join('');
+  const diffs = items.filter((_, i) => !(dom.per[i] && act.per[i]));
+
+  $('#u-root').innerHTML = `
+    <div class="ufile">
+      <b>${esc(filename)}</b>
+      <span>${N} items · Rate-100 export${obj.generated_at ? ` · ${esc(String(obj.generated_at).slice(0, 10))}` : ''}</span>
+      <button type="button" id="u-clear">Load another</button>
+    </div>
+    <div class="rscore">
+      <div class="box"><div class="big">${pct(dom.exact)}</div>
+        <div class="lbl">domains: exact match (${dom.exact}/${N}); overlap ${pct(dom.overlap)}</div></div>
+      <div class="box"><div class="big">${pct(act.exact)}</div>
+        <div class="lbl">actions: exact match (${act.exact}/${N}); overlap ${pct(act.overlap)}</div></div>
+    </div>
+    <div class="rmats">${matrixHTML('Domains', dom)}${matrixHTML('Actions', act)}</div>
+    <section><h2>Disagreements <span class="vn">${diffs.length}</span></h2>
+      ${diffs.map((it) => `
+        <article class="rrev">
+          ${it.user_input ? `<div class="txt">${esc(it.user_input)}</div>` : ''}
+          ${it.translation ? `<div class="rtrans"><b>Translation (${esc(it.language || '')})</b>${esc(it.translation)}</div>` : ''}
+          <div class="who">Rater picked</div>
+          <div>${chips(it.your_domains, it.opus_domains, 'd')}${chips(it.your_actions, it.opus_actions, 'a')}</div>
+          <div class="who">Opus 4.8 picked</div>
+          <div>${chips(it.opus_domains, it.your_domains, 'd')}${chips(it.opus_actions, it.your_actions, 'a')}</div>
+        </article>`).join('') || '<div class="empty">Full agreement on every item.</div>'}
+    </section>`;
+  $('#u-clear').addEventListener('click', () => drawDrop());
 }
 
 /* Lenient by design: a row counts if it carries the fields the report needs, whether
@@ -560,6 +635,7 @@ function drawRateItem(host) {
       <span>${R.answers.size} answered</span></div>
     <div class="rprog"><i style="width:${(R.cursor / RATE_N) * 100}%"></i></div>
     <div class="rtext">${esc(it.u)}</div>
+    ${it.tr ? `<div class="rtrans"><b>Translation (${esc(it.lang)})</b>${esc(it.tr)}</div>` : ''}
     <div class="rgroup"><h3>Domains — pick every one that applies</h3>
       ${chiprow('dd', S.meta.domains, ans.d)}</div>
     <div class="rgroup"><h3>Actions — what did the user ask the model to do?</h3>
@@ -657,12 +733,14 @@ function drawRateResults(host) {
 function rateDownload(rep) {
   const items = R.items.map((it) => {
     const a = R.answers.get(it.h);
-    return {
+    const rec = {
       conversation_hash: it.h,
       user_input: it.u,
       your_domains: [...a.d], opus_domains: it.d,
       your_actions: [...a.a], opus_actions: it.a,
     };
+    if (it.tr) { rec.language = it.lang; rec.translation = it.tr; }
+    return rec;
   });
   const out = {
     generated_at: new Date().toISOString(),
@@ -712,6 +790,7 @@ function drawRateReview(host) {
     ${shown.map(({ it, d, a }) => `
       <article class="rrev">
         <div class="txt">${esc(it.u)}</div>
+        ${it.tr ? `<div class="rtrans"><b>Translation (${esc(it.lang)})</b>${esc(it.tr)}</div>` : ''}
         <div class="who">You picked ${d.eq && a.eq ? '<span class="rok">— full agreement</span>' : ''}</div>
         <div>${chips(d.yours, d.yours, d.opus)}${chipsA(a.yours, a.opus)}</div>
         <div class="who">Opus 4.8 picked</div>
