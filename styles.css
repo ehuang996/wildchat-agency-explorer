@@ -359,3 +359,9 @@ pre.prompt {
 }
 .rtrans b { display: block; font-size: 11px; text-transform: uppercase;
   letter-spacing: .04em; color: var(--ink-3); margin-bottom: 3px; }
+
+/* Relabel tab */
+.rchips.nn button { border-color: #b05aa6; }
+.rchips.nn button[aria-pressed="true"] { background: #f6e4f4; }
+.rchips.nn button.notsa { border-color: #c0392b; color: #8f2c20; }
+.rchips.nn button.notsa[aria-pressed="true"] { background: #fdebe8; }

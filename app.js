@@ -26,7 +26,7 @@ const pretty = (s) => s.replace(/_/g, ' ');
 const nf = (n) => n.toLocaleString('en-US');
 
 /* ---------------- tabs ---------------- */
-const TABS = ['examples', 'prompts', 'analysis', 'rate', 'upload'];
+const TABS = ['examples', 'prompts', 'analysis', 'rate', 'relabel', 'upload'];
 for (const id of TABS) {
   document.getElementById('tab-' + id).addEventListener('click', () => {
     for (const other of TABS) {
@@ -37,6 +37,7 @@ for (const id of TABS) {
     if (id === 'analysis') drawAnalysis();
     if (id === 'prompts') ensurePrompts();
     if (id === 'rate') ensureRate();
+    if (id === 'relabel') ensureRelabel();
     if (id === 'upload') ensureUpload();
   });
 }
@@ -800,4 +801,224 @@ function drawRateReview(host) {
   $('#r-fdiff').addEventListener('click', () => { R.revFilter = 'diff'; drawRate(); });
   $('#r-fall').addEventListener('click', () => { R.revFilter = 'all'; drawRate(); });
   $('#r-backres').addEventListener('click', () => { R.view = 'results'; drawRate(); });
+}
+
+/* ---------------- Relabel (local file, never uploaded) ----------------
+   Manual re-labeling of the 619 residual ("other") conversations. The rows
+   are PII-mixed, so they are NOT bundled with the public site: the labeler
+   loads sa_dataset_other619.csv from disk, everything stays in the browser,
+   and progress persists in localStorage. Export = CSV. */
+
+const RL_LS = 'sa_relabel_v1';
+let relabelReady = false;
+const RL = { items: [], cursor: 0, answers: new Map(), view: 'drop' };
+
+function ensureRelabel() {
+  if (!relabelReady) {
+    relabelReady = true;
+    try {
+      const saved = JSON.parse(localStorage.getItem(RL_LS) || 'null');
+      if (saved && saved.items && saved.items.length) {
+        RL.items = saved.items;
+        RL.cursor = Math.min(saved.cursor || 0, saved.items.length - 1);
+        RL.answers = new Map(Object.entries(saved.answers || {}).map(([k, v]) => [k, new Set(v)]));
+        RL.view = 'label';
+      }
+    } catch (e) { /* fresh start */ }
+  }
+  drawRelabel();
+}
+
+function saveRelabel() {
+  const answers = {};
+  for (const [k, v] of RL.answers) answers[k] = [...v];
+  try {
+    localStorage.setItem(RL_LS, JSON.stringify({ items: RL.items, answers, cursor: RL.cursor }));
+  } catch (e) { /* storage full/blocked: keep going in-memory */ }
+}
+
+/* CSV parser that survives quoted multiline fields. */
+function parseCSV(text) {
+  const rows = []; let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false;
+      } else field += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function relabelLoad(file) {
+  const fr = new FileReader();
+  fr.onerror = () => drawRelabelDrop('Could not read that file.');
+  fr.onload = () => {
+    const text = fr.result;
+    let items = [];
+    try {
+      if (/^\s*\{/.test(text)) {                      // jsonl of {user_input}
+        items = text.split('\n').filter((l) => l.trim())
+          .map((l, i) => ({ id: 'row' + (i + 1), u: JSON.parse(l).user_input }));
+      } else {                                         // csv with header
+        const rows = parseCSV(text);
+        const head = rows[0].map((s) => s.trim().toLowerCase());
+        const hi = head.indexOf('conversation_hash'), ui = head.indexOf('user_input');
+        if (ui < 0) throw new Error('no user_input column');
+        items = rows.slice(1).map((r, i) => ({ id: hi >= 0 ? r[hi] : 'row' + (i + 1), u: r[ui] }));
+      }
+    } catch (e) {
+      return drawRelabelDrop('Could not parse that file: ' + e.message);
+    }
+    if (!items.length) return drawRelabelDrop('No rows found in that file.');
+    RL.items = items; RL.cursor = 0; RL.answers = new Map(); RL.view = 'label';
+    saveRelabel(); drawRelabel();
+  };
+  fr.readAsText(file);
+}
+
+function drawRelabelDrop(error) {
+  $('#rl-root').innerHTML = `
+    <div class="vhead"><h2>Relabel the residual</h2></div>
+    <p class="lede">
+      Manually re-label the 619 residual (<b>other</b>) conversations. Load your local
+      <code>sa_dataset_other619.csv</code> — the file is read <b>in your browser only</b>,
+      nothing is uploaded or published. Pick the domains that apply, or <b>other</b>
+      (structural agency, but no domain fits), or <b>Not SA</b>. Progress is saved in
+      this browser; export a CSV when done.
+    </p>
+    ${error ? `<div class="uerr">${esc(error)}</div>` : ''}
+    <label class="drop" id="rl-drop">
+      <input type="file" id="rl-file" accept=".csv,.jsonl,.ndjson,.txt">
+      <h3>Choose the file, or drop it here</h3>
+      <p>sa_dataset_other619.csv · sa_dataset_other619_annotation.jsonl</p>
+    </label>`;
+  const zone = $('#rl-drop'), input = $('#rl-file');
+  input.addEventListener('change', () => { if (input.files[0]) relabelLoad(input.files[0]); });
+  for (const ev of ['dragenter', 'dragover'])
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); });
+  for (const ev of ['dragleave', 'drop'])
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('over'); });
+  zone.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) relabelLoad(f); });
+}
+
+function rlToggle(set, label) {
+  // domains multi-select; `other` and `not_sa` each stand alone
+  if (label === 'other' || label === 'not_sa') {
+    if (set.has(label)) set.delete(label);
+    else { set.clear(); set.add(label); }
+  } else {
+    set.delete('other'); set.delete('not_sa');
+    if (set.has(label)) set.delete(label); else set.add(label);
+  }
+}
+
+function relabelCSV() {
+  const lines = ['conversation_hash,labels'];
+  for (const it of RL.items) {
+    const ans = RL.answers.get(it.id);
+    lines.push(`${it.id},${ans && ans.size ? [...ans].join('|') : ''}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+function drawRelabel() {
+  const host = $('#rl-root');
+  if (RL.view === 'drop' || !RL.items.length) return drawRelabelDrop();
+  if (RL.view === 'done') return drawRelabelDone(host);
+
+  const it = RL.items[RL.cursor];
+  if (!RL.answers.has(it.id)) RL.answers.set(it.id, new Set());
+  const ans = RL.answers.get(it.id);
+  const N = RL.items.length;
+  const domains = S.meta.domains.filter((d) => d !== 'other');
+  const answered = [...RL.answers.values()].filter((s) => s.size).length;
+
+  host.innerHTML = `<div class="rwrap">
+    <div class="resbar"><span><b>${RL.cursor + 1}</b> of ${N}</span>
+      <span>${answered} labelled</span>
+      <span class="pager">
+        <button id="rl-export">Download CSV</button>
+        <button id="rl-reset">Start over</button>
+      </span></div>
+    <div class="rprog"><i style="width:${(answered / N) * 100}%"></i></div>
+    <div class="rtext">${esc(it.u)}</div>
+    <div class="rgroup"><h3>Domains — pick every one that applies</h3>
+      <div class="rchips dd">${domains.map((l) =>
+        `<button type="button" data-l="${l}" aria-pressed="${ans.has(l)}">${esc(pretty(l))}</button>`).join('')}
+      </div></div>
+    <div class="rgroup"><h3>Or:</h3>
+      <div class="rchips nn">
+        <button type="button" data-l="other" aria-pressed="${ans.has('other')}">other (SA, no domain fits)</button>
+        <button type="button" data-l="not_sa" class="notsa" aria-pressed="${ans.has('not_sa')}">Not SA</button>
+      </div></div>
+    <div class="rnav">
+      <button id="rl-back" ${RL.cursor === 0 ? 'disabled' : ''}>&larr; Back</button>
+      <button class="primary" id="rl-next" ${ans.size ? '' : 'disabled'}>
+        ${RL.cursor === N - 1 ? 'Finish' : 'Next →'}</button>
+      <span class="rnote"><b>other</b> and <b>Not SA</b> stand alone</span>
+    </div>
+  </div>`;
+
+  host.querySelectorAll('.rchips button').forEach((b) =>
+    b.addEventListener('click', () => { rlToggle(ans, b.dataset.l); saveRelabel(); drawRelabel(); }));
+  $('#rl-back').addEventListener('click', () => { RL.cursor--; saveRelabel(); drawRelabel(); });
+  $('#rl-next').addEventListener('click', () => {
+    if (RL.cursor === RL.items.length - 1) RL.view = 'done';
+    else RL.cursor++;
+    saveRelabel(); drawRelabel();
+  });
+  $('#rl-export').addEventListener('click', relabelDownload);
+  $('#rl-reset').addEventListener('click', () => {
+    if (!confirm('Discard all relabel progress?')) return;
+    localStorage.removeItem(RL_LS);
+    RL.items = []; RL.answers = new Map(); RL.cursor = 0; RL.view = 'drop';
+    drawRelabel();
+  });
+}
+
+function relabelDownload() {
+  const blob = new Blob([relabelCSV()], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'other619_relabelled.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function drawRelabelDone(host) {
+  const counts = new Map();
+  let unlabelled = 0;
+  for (const it of RL.items) {
+    const ans = RL.answers.get(it.id);
+    if (!ans || !ans.size) { unlabelled++; continue; }
+    for (const l of ans) counts.set(l, (counts.get(l) || 0) + 1);
+  }
+  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const max = rows.length ? rows[0][1] : 1;
+  host.innerHTML = `<div class="rwrap">
+    <div class="vhead"><h2>Relabel complete</h2></div>
+    <p class="lede">${RL.items.length - unlabelled} of ${RL.items.length} conversations labelled${
+      unlabelled ? ` — <b>${unlabelled} still unlabelled</b> (use Review to finish them)` : ''}.</p>
+    <div class="bars">${rows.map(([l, n]) => `
+      <div class="bar"><span class="blabel">${esc(pretty(l))}</span>
+        <span class="btrack"><i style="width:${(n / max) * 100}%"></i></span>
+        <span class="bval">${n}</span></div>`).join('')}
+    </div>
+    <div class="rnav">
+      <button class="primary" id="rl-dl">Download CSV</button>
+      <button id="rl-review">&larr; Review / keep editing</button>
+    </div>
+  </div>`;
+  $('#rl-dl').addEventListener('click', relabelDownload);
+  $('#rl-review').addEventListener('click', () => { RL.view = 'label'; RL.cursor = 0; drawRelabel(); });
 }
