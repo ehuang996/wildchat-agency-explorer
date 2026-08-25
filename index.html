@@ -16,6 +16,7 @@
     <button role="tab" id="tab-prompts"  aria-controls="panel-prompts"  aria-selected="false">Prompts</button>
     <button role="tab" id="tab-analysis" aria-controls="panel-analysis" aria-selected="false">Analysis</button>
     <button role="tab" id="tab-rate"     aria-controls="panel-rate"     aria-selected="false">Rate&nbsp;100</button>
+    <button role="tab" id="tab-survey"   aria-controls="panel-survey"   aria-selected="false">Survey</button>
     <button role="tab" id="tab-relabel"  aria-controls="panel-relabel"  aria-selected="false">Relabel</button>
     <button role="tab" id="tab-upload"   aria-controls="panel-upload"   aria-selected="false">Upload</button>
   </nav>
@@ -74,10 +75,11 @@
       <section>
         <h2>Domains &times; Actions</h2>
         <p class="lede">
-          Every conversation carries one or more institutional <b>domains</b> from the filtering
-          pipeline and one or more <b>actions</b> — what the user asked the model to do — from an
-          independent labelling pass. Each cell is the share of a domain's conversations whose
-          actions include that code.
+          Among conversations with valid action judgments, each row carries one or more final
+          post-adjudication <b>domains</b> and one or more <b>actions</b> — what the user asked the
+          model to do — from an independent labelling pass. Final domains retain automated labels
+          for original named-domain rows and human assignments for recovered residual cases. Each
+          cell is the share of a domain's action-labelled conversations whose actions include that code.
         </p>
         <div class="scale">
           <span>share of the domain's rows</span>
@@ -113,6 +115,11 @@
 <!-- ============ RATE 100 ============ -->
 <div class="tabpanel" id="panel-rate" role="tabpanel" aria-labelledby="tab-rate" hidden>
   <main class="main rfull" id="r-root"><div class="loading">Loading…</div></main>
+</div>
+
+<!-- ============ SURVEY (human agreement) ============ -->
+<div class="tabpanel" id="panel-survey" role="tabpanel" aria-labelledby="tab-survey" hidden>
+  <main class="main rfull" id="sv-root"><div class="loading">Loading…</div></main>
 </div>
 
 <div class="tabpanel" id="panel-relabel" role="tabpanel" aria-labelledby="tab-relabel" hidden>

@@ -365,3 +365,33 @@ pre.prompt {
 .rchips.nn button[aria-pressed="true"] { background: #f6e4f4; }
 .rchips.nn button.notsa { border-color: #c0392b; color: #8f2c20; }
 .rchips.nn button.notsa[aria-pressed="true"] { background: #fdebe8; }
+
+/* Survey tab (human agreement) */
+.svpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 8px 0 18px; }
+.svpick button {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left;
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink);
+  border-radius: 10px; padding: 12px 14px; cursor: pointer; font: inherit;
+}
+.svpick button b { font-size: 16px; }
+.svpick button span { font-size: 12px; color: var(--ink-3); }
+.svpick button:hover { border-color: var(--accent); }
+.rchips.sv-yn button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rchips.sv-yn button.notsa { border-color: #c0392b; color: #8f2c20; }
+.rchips.sv-yn button.notsa[aria-pressed="true"] { background: #c0392b; border-color: #c0392b; color: #fff; }
+.svnote {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 10px; font: inherit; font-size: 13px; background: var(--panel); color: var(--ink); resize: vertical;
+}
+.svdefs {
+  margin-top: 22px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 16px 12px;
+  background: var(--panel); font-size: 13px; line-height: 1.5; color: var(--ink-2);
+}
+.svdefs summary { cursor: pointer; font-weight: 600; color: var(--ink); padding: 4px 0; }
+.svdefs h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
+.svdefs p { margin: 6px 0; }
+.svdefs ul { margin: 4px 0 0 18px; padding: 0; }
+.svdefs dl { margin: 4px 0 0; }
+.svdefs dt { font-weight: 600; color: var(--ink); margin-top: 8px; }
+.svdefs dt .svt { font-weight: 400; color: var(--ink-3); margin-left: 6px; }
+.svdefs dd { margin: 2px 0 0; }

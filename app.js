@@ -1,7 +1,9 @@
 /* WildChat Structural-Agency Explorer
-   Five tabs over a static payload: Examples (search + paginate the published rows),
+   Tabs over a static payload: Examples (search + paginate the published rows),
    Prompts (the action labelling prompt), Analysis (domains x actions heatmap),
    Rate 100 (label a fixed hidden-label set and score against the pipeline),
+   Survey (human-agreement study: six annotators, three disjoint groups of 30, CSV export),
+   Relabel (adjudicate the 619 residual rows from a local file),
    Upload (read a Rate-100 JSON export or a legacy verification JSONL back in).
    Non-English rows carry a stored English translation ("lang"/"tr"), shown
    under the original text wherever the row appears.
@@ -26,7 +28,7 @@ const pretty = (s) => s.replace(/_/g, ' ');
 const nf = (n) => n.toLocaleString('en-US');
 
 /* ---------------- tabs ---------------- */
-const TABS = ['examples', 'prompts', 'analysis', 'rate', 'relabel', 'upload'];
+const TABS = ['examples', 'prompts', 'analysis', 'rate', 'survey', 'relabel', 'upload'];
 for (const id of TABS) {
   document.getElementById('tab-' + id).addEventListener('click', () => {
     for (const other of TABS) {
@@ -37,6 +39,7 @@ for (const id of TABS) {
     if (id === 'analysis') drawAnalysis();
     if (id === 'prompts') ensurePrompts();
     if (id === 'rate') ensureRate();
+    if (id === 'survey') ensureSurvey();
     if (id === 'relabel') ensureRelabel();
     if (id === 'upload') ensureUpload();
   });
@@ -241,11 +244,13 @@ function drawAnalysis() {
       `<b>${esc(pretty(d))} → ${esc(pretty(a))}</b> (${(sh * 100).toFixed(0)}%)`).join(', ') + '.';
 
   bars('#bars-action', m.actions, m.action_counts, A.n);
-  bars('#bars-domain', m.domains, m.domain_counts, A.n);
+  bars('#bars-domain', m.domains, S.meta.corpus_domain_counts, S.meta.corpus);
 
   $('#about').innerHTML =
-    `<b>The figures on this page cover the whole experiment: ${nf(A.n)} conversations.</b> ` +
-    `Domain labels come from the filtering pipeline; action labels from an ` +
+    `<b>Domain bars cover all ${nf(S.meta.corpus)} post-adjudication conversations; ` +
+    `action bars and the cross-tab cover the ${nf(A.n)} with valid action labels.</b> ` +
+    `Domain labels are the final post-adjudication labels, including human assignments ` +
+    `for recovered residual cases; action labels come from an ` +
     `independent Claude Opus 4.8 pass shown only the user turn, never the reply.`;
 }
 
@@ -339,7 +344,7 @@ function drawDrop(error) {
     <label class="drop" id="u-drop">
       <input type="file" id="u-file" accept=".jsonl,.ndjson,.json,.txt">
       <h3>Choose a file, or drop it here</h3>
-      <p>rate100_vs_opus.json · verification_*.jsonl</p>
+      <p>rate100_vs_final_labels.json · legacy rate100_vs_opus.json · verification_*.jsonl</p>
     </label>`;
 
   const zone = $('#u-drop'), input = $('#u-file');
@@ -382,9 +387,14 @@ function readFile(file) {
 /* A Rate-100 JSON export, re-rendered: scores and matrices are recomputed from
    the item records rather than trusted from the file's own summary block. */
 function drawRateFile(obj, filename) {
-  const items = obj.items.filter((it) =>
-    Array.isArray(it.your_domains) && Array.isArray(it.opus_domains) &&
-    Array.isArray(it.your_actions) && Array.isArray(it.opus_actions));
+  // Accept both the corrected reference_* schema and older local exports.
+  const items = obj.items.map((it) => ({
+    ...it,
+    reference_domains: it.reference_domains || it.opus_domains,
+    reference_actions: it.reference_actions || it.opus_actions,
+  })).filter((it) =>
+    Array.isArray(it.your_domains) && Array.isArray(it.reference_domains) &&
+    Array.isArray(it.your_actions) && Array.isArray(it.reference_actions));
   if (!items.length) { drawDrop('That file has no usable Rate-100 items.'); return; }
   const N = items.length;
 
@@ -405,8 +415,8 @@ function drawRateFile(obj, filename) {
     }
     return { exact, overlap, tp, fp, fn, tn, per };
   };
-  const dom = facet(S.meta.domains, 'your_domains', 'opus_domains');
-  const act = facet(S.meta.actions, 'your_actions', 'opus_actions');
+  const dom = facet(S.meta.domains, 'your_domains', 'reference_domains');
+  const act = facet(S.meta.actions, 'your_actions', 'reference_actions');
   const pct = (n) => ((n / N) * 100).toFixed(0) + '%';
   const chips = (list, other, cls) => list.map((l) =>
     `<span class="tag ${cls}${other.includes(l) ? '' : ' x'}">${esc(pretty(l))}</span>`).join('');
@@ -431,9 +441,9 @@ function drawRateFile(obj, filename) {
           ${it.user_input ? `<div class="txt">${esc(it.user_input)}</div>` : ''}
           ${it.translation ? `<div class="rtrans"><b>Translation (${esc(it.language || '')})</b>${esc(it.translation)}</div>` : ''}
           <div class="who">Rater picked</div>
-          <div>${chips(it.your_domains, it.opus_domains, 'd')}${chips(it.your_actions, it.opus_actions, 'a')}</div>
-          <div class="who">Opus 4.8 picked</div>
-          <div>${chips(it.opus_domains, it.your_domains, 'd')}${chips(it.opus_actions, it.your_actions, 'a')}</div>
+          <div>${chips(it.your_domains, it.reference_domains, 'd')}${chips(it.your_actions, it.reference_actions, 'a')}</div>
+          <div class="who">Final reference labels</div>
+          <div>${chips(it.reference_domains, it.your_domains, 'd')}${chips(it.reference_actions, it.your_actions, 'a')}</div>
         </article>`).join('') || '<div class="empty">Full agreement on every item.</div>'}
     </section>`;
   $('#u-clear').addEventListener('click', () => drawDrop());
@@ -522,10 +532,11 @@ function drawUpload(parsed, filename) {
 /* ---------------- Rate 100 ----------------
    A fixed, seeded 100-conversation set with labels hidden. The visitor assigns
    domains (9 + other) and actions (6 + other), then sees agreement with the
-   pipeline's Opus 4.8 labels: per-facet scores, label-level 2x2 confusion
+   final post-adjudication reference labels: per-facet scores, label-level 2x2 confusion
    matrices, an item-by-item comparison view, and a JSON download. Everything is
    client-side; progress persists in localStorage. */
 
+// Fixed historical RNG seed; this number is not a corpus-size constant.
 const RATE_N = 100, RATE_SEED = 11997, RATE_LS = 'sa_rate_v1';
 let rateReady = false;
 const R = { items: [], cursor: 0, answers: new Map(), view: 'intro', revFilter: 'diff' };
@@ -591,7 +602,7 @@ function drawRateIntro(host) {
     <p class="lede">You will see the same fixed set of 100 published conversations with their
       labels hidden. For each one, pick every domain that applies (or <b>other</b> if none do)
       and every action (or <b>other</b>). At the end you will see how your judgments compare
-      with the pipeline's Claude&nbsp;Opus&nbsp;4.8 labels, including 2×2 confusion matrices,
+      with the final post-adjudication reference labels, including 2×2 confusion matrices,
       an item-by-item comparison, and a downloadable JSON of your answers.</p>
     <p class="rnote">Nothing is uploaded anywhere; your progress is saved in this browser only.</p>
     <div class="rnav">
@@ -661,8 +672,8 @@ function drawRateItem(host) {
   });
 }
 
-/* Scores + label-level 2x2 per facet. Truth = pipeline labels in the index
-   (domains as released; actions from the Opus 4.8 annotation pass). */
+/* Scores + label-level 2x2 per facet. Reference = final labels in the index.
+   Domains include human assignments for residual cases; actions come from Opus 4.8. */
 function rateReport() {
   const facet = (labels, yours, truth) => {
     let exact = 0, overlap = 0, tp = 0, fp = 0, fn = 0, tn = 0;
@@ -694,13 +705,13 @@ function rateReport() {
 function matrixHTML(name, m) {
   return `<div><h3>${name} — label-level 2×2</h3>
     <table class="vconf">
-      <thead><tr><th></th><th>Opus assigned</th><th>Opus did not</th></tr></thead>
+      <thead><tr><th></th><th>Reference includes</th><th>Reference does not</th></tr></thead>
       <tbody>
         <tr><th>You assigned</th>
           <td class="hit">${nf(m.tp)}<span class="sub">agreed yes</span></td>
           <td class="miss">${nf(m.fp)}<span class="sub">you only</span></td></tr>
         <tr><th>You did not</th>
-          <td class="miss">${nf(m.fn)}<span class="sub">Opus only</span></td>
+          <td class="miss">${nf(m.fn)}<span class="sub">reference only</span></td>
           <td class="hit">${nf(m.tn)}<span class="sub">agreed no</span></td></tr>
       </tbody>
     </table></div>`;
@@ -710,7 +721,7 @@ function drawRateResults(host) {
   const rep = rateReport();
   const pct = (n) => ((n / RATE_N) * 100).toFixed(0) + '%';
   host.innerHTML = `<div class="rwrap">
-    <h2>Your 100 vs Claude Opus 4.8</h2>
+    <h2>Your 100 vs the final reference labels</h2>
     <div class="rscore">
       <div class="box"><div class="big">${pct(rep.domain.exact)}</div>
         <div class="lbl">domains: exact set match (${rep.domain.exact}/${RATE_N}); any overlap ${pct(rep.domain.overlap)}</div></div>
@@ -737,8 +748,8 @@ function rateDownload(rep) {
     const rec = {
       conversation_hash: it.h,
       user_input: it.u,
-      your_domains: [...a.d], opus_domains: it.d,
-      your_actions: [...a.a], opus_actions: it.a,
+      your_domains: [...a.d], reference_domains: it.d,
+      your_actions: [...a.a], reference_actions: it.a,
     };
     if (it.tr) { rec.language = it.lang; rec.translation = it.tr; }
     return rec;
@@ -748,16 +759,16 @@ function rateDownload(rep) {
     set: { seed: RATE_SEED, n: RATE_N, source: 'published rows, seeded shuffle' },
     summary: {
       domains: { exact: rep.domain.exact, overlap: rep.domain.overlap,
-                 matrix: { both_yes: rep.domain.tp, you_only: rep.domain.fp, opus_only: rep.domain.fn, both_no: rep.domain.tn } },
+                 matrix: { both_yes: rep.domain.tp, you_only: rep.domain.fp, reference_only: rep.domain.fn, both_no: rep.domain.tn } },
       actions: { exact: rep.action.exact, overlap: rep.action.overlap,
-                 matrix: { both_yes: rep.action.tp, you_only: rep.action.fp, opus_only: rep.action.fn, both_no: rep.action.tn } },
+                 matrix: { both_yes: rep.action.tp, you_only: rep.action.fp, reference_only: rep.action.fn, both_no: rep.action.tn } },
     },
     items,
   };
   const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'rate100_vs_opus.json';
+  a.download = 'rate100_vs_final_labels.json';
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -794,7 +805,7 @@ function drawRateReview(host) {
         ${it.tr ? `<div class="rtrans"><b>Translation (${esc(it.lang)})</b>${esc(it.tr)}</div>` : ''}
         <div class="who">You picked ${d.eq && a.eq ? '<span class="rok">— full agreement</span>' : ''}</div>
         <div>${chips(d.yours, d.yours, d.opus)}${chipsA(a.yours, a.opus)}</div>
-        <div class="who">Opus 4.8 picked</div>
+        <div class="who">Final reference labels</div>
         <div>${chips(d.opus, d.opus, d.yours)}${chipsA(a.opus, a.yours)}</div>
       </article>`).join('') || '<div class="empty">Nothing to show.</div>'}
   </div>`;
@@ -804,7 +815,7 @@ function drawRateReview(host) {
 }
 
 /* ---------------- Relabel (local file, never uploaded) ----------------
-   Manual re-labeling of the 619 residual ("other") conversations. The rows
+   Manual adjudication of the 619 raw automated residual candidates. The rows
    are PII-mixed, so they are NOT bundled with the public site: the labeler
    loads sa_dataset_other619.csv from disk, everything stays in the browser,
    and progress persists in localStorage. Export = CSV. */
@@ -890,7 +901,7 @@ function drawRelabelDrop(error) {
   $('#rl-root').innerHTML = `
     <div class="vhead"><h2>Relabel the residual</h2></div>
     <p class="lede">
-      Manually re-label the 619 residual (<b>other</b>) conversations. Load your local
+      Adjudicate the 619 raw automated residual candidates. Load your local
       <code>sa_dataset_other619.csv</code> — the file is read <b>in your browser only</b>,
       nothing is uploaded or published. Pick the domains that apply, or <b>other</b>
       (structural agency, but no domain fits), or <b>Not SA</b>. Progress is saved in
@@ -1021,4 +1032,235 @@ function drawRelabelDone(host) {
   </div>`;
   $('#rl-dl').addEventListener('click', relabelDownload);
   $('#rl-review').addEventListener('click', () => { RL.view = 'label'; RL.cursor = 0; drawRelabel(); });
+}
+
+/* ---------------- Survey (human agreement) ----------------
+   Six annotators (A1-A6) label three disjoint groups of published
+   conversations, one independent pair per group (A1+A2 -> group 1,
+   A3+A4 -> group 2, A5+A6 -> group 3), mirroring EUDAIMONIA
+   (arXiv:2605.30654, Appendix F.1). Items and the pipeline's own definitions
+   come from data/survey_items.json, which carries NO pipeline labels.
+   Answers stay in this browser (localStorage, per annotator) until the
+   annotator downloads the CSV and sends it to the study lead. */
+
+const SV_LS = 'sa_survey_v1';
+let surveyLoading = null;
+const SV = { data: null, annotator: null, group: null, items: [], cursor: 0, answers: new Map(), view: 'intro' };
+
+async function ensureSurvey() {
+  if (!SV.data) {
+    if (!surveyLoading) surveyLoading = fetch('data/survey_items.json').then((r) => r.json());
+    try { SV.data = await surveyLoading; }
+    catch (e) {
+      surveyLoading = null;
+      $('#sv-root').innerHTML = '<div class="empty">Could not load data/survey_items.json.</div>';
+      return;
+    }
+  }
+  drawSurvey();
+}
+
+const svGroupOf = (a) => Object.keys(SV.data.groups).find((g) => SV.data.groups[g].annotators.includes(a));
+const svKey = (a) => `${SV_LS}:${a}`;
+const svDone = (ans) => !!ans && (ans.sa === 'no' || (ans.sa === 'yes' && ans.d.size > 0 && ans.a.size > 0));
+
+function svSavedCount(a) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(svKey(a)) || 'null');
+    if (!saved || !saved.answers) return 0;
+    return Object.values(saved.answers)
+      .filter((v) => v.sa === 'no' || (v.sa === 'yes' && (v.d || []).length && (v.a || []).length)).length;
+  } catch (e) { return 0; }
+}
+
+function svSelect(a) {
+  SV.annotator = a; SV.group = svGroupOf(a);
+  SV.items = SV.data.groups[SV.group].items.map((h) => ({ h, ...SV.data.items[h] }));
+  SV.answers = new Map(); SV.cursor = 0; SV.view = 'item';
+  try {
+    const saved = JSON.parse(localStorage.getItem(svKey(a)) || 'null');
+    if (saved && saved.answers) {
+      for (const it of SV.items) {
+        const v = saved.answers[it.h];
+        if (v) SV.answers.set(it.h, { sa: v.sa || null, d: new Set(v.d || []), a: new Set(v.a || []), note: v.note || '', t: v.t || '' });
+      }
+      SV.cursor = Math.min(saved.cursor || 0, SV.items.length - 1);
+      if (SV.items.every((it) => svDone(SV.answers.get(it.h)))) SV.view = 'done';
+    }
+  } catch (e) { /* fresh start */ }
+  drawSurvey();
+}
+
+function saveSurvey() {
+  if (!SV.annotator) return;
+  const answers = {};
+  for (const [h, v] of SV.answers) answers[h] = { sa: v.sa, d: [...v.d], a: [...v.a], note: v.note, t: v.t };
+  try {
+    localStorage.setItem(svKey(SV.annotator),
+      JSON.stringify({ annotator: SV.annotator, group: SV.group, answers, cursor: SV.cursor }));
+  } catch (e) { /* storage blocked: keep going in-memory */ }
+}
+
+function svDefsHTML(open) {
+  const D = SV.data.definitions;
+  return `<details class="svdefs" ${open ? 'open' : ''}>
+    <summary>Definitions used by the pipeline (read before you start)</summary>
+    <h4>Structural agency</h4>
+    <p>${esc(D.structural_agency.definition)}</p>
+    <p>A conversation counts when the user's message shows at least one of these purposes:</p>
+    <ul>${D.structural_agency.purposes.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
+    <h4>Domains (pick every one that applies)</h4>
+    <dl>${D.domains.map((d) =>
+      `<dt>${esc(pretty(d.key))}<span class="svt">${esc(d.title)}</span></dt><dd>${esc(d.scope)}</dd>`).join('')}
+      <dt>other</dt><dd>Structural agency, but none of the nine domains fits. Stands alone.</dd></dl>
+    <h4>Actions (what the user asked the model to produce)</h4>
+    <dl>${D.actions.map((a) => `<dt>${esc(a.key)}</dt><dd>${esc(a.definition)}</dd>`).join('')}</dl>
+  </details>`;
+}
+
+function drawSurvey() {
+  const host = $('#sv-root');
+  if (SV.view === 'intro' || !SV.annotator) return drawSurveyIntro(host);
+  if (SV.view === 'done') return drawSurveyDone(host);
+  return drawSurveyItem(host);
+}
+
+function drawSurveyIntro(host) {
+  const per = SV.data.per_group, G = SV.data.groups;
+  const ann = Object.keys(G).flatMap((g) => G[g].annotators.map((a) => ({ a, g })));
+  host.innerHTML = `<div class="rwrap">
+    <h2>Human agreement survey</h2>
+    <p class="lede">Six annotators label three disjoint groups of ${per} published conversations,
+      one pair per group, following the protocol of EUDAIMONIA (Appendix F.1). For each
+      conversation you decide whether it is <b>structural agency</b>; if it is, you also pick every
+      <b>domain</b> that applies and the <b>action</b> the user asked for. The pipeline's own labels
+      are hidden. Both members of a pair see the same ${per} conversations; please work independently
+      and do not look the conversations up in the Examples tab.</p>
+    <p class="rnote">Nothing is uploaded. Your answers are saved in this browser under your annotator ID;
+      when you finish, download the CSV and send it to the study lead.</p>
+    <h3>Choose your annotator ID</h3>
+    <div class="svpick">${ann.map(({ a, g }) => {
+      const n = svSavedCount(a);
+      return `<button type="button" data-a="${a}"><b>${a}</b><span>Group ${g} · ${n ? `${n}/${per} done` : 'not started'}</span></button>`;
+    }).join('')}</div>
+    ${svDefsHTML(true)}
+  </div>`;
+  host.querySelectorAll('.svpick button').forEach((b) => b.addEventListener('click', () => svSelect(b.dataset.a)));
+}
+
+function drawSurveyItem(host) {
+  const N = SV.items.length, it = SV.items[SV.cursor];
+  if (!SV.answers.has(it.h)) SV.answers.set(it.h, { sa: null, d: new Set(), a: new Set(), note: '', t: '' });
+  const ans = SV.answers.get(it.h);
+  const answered = SV.items.filter((x) => svDone(SV.answers.get(x.h))).length;
+  const domains = SV.data.definitions.domains.map((d) => d.key).concat('other');
+  const actions = SV.data.definitions.actions.map((a) => a.key);
+  const chiprow = (cls, labels, set) => `<div class="rchips ${cls}">` + labels.map((l) =>
+    `<button type="button" data-l="${l}" aria-pressed="${set.has(l)}">${esc(pretty(l))}</button>`).join('') + '</div>';
+
+  host.innerHTML = `<div class="rwrap">
+    <div class="resbar"><span><b>${SV.cursor + 1}</b> of ${N} · ${SV.annotator} · group ${SV.group}</span>
+      <span>${answered} answered</span>
+      <span class="pager"><button id="sv-export">Download CSV</button><button id="sv-switch">Switch annotator</button></span></div>
+    <div class="rprog"><i style="width:${(answered / N) * 100}%"></i></div>
+    <div class="rtext">${esc(it.u)}</div>
+    ${it.tr ? `<div class="rtrans"><b>Translation (${esc(it.lang || '')})</b>${esc(it.tr)}</div>` : ''}
+    <div class="rgroup"><h3>1. Is this conversation structural agency?</h3>
+      <div class="rchips sv-yn">
+        <button type="button" data-v="yes" aria-pressed="${ans.sa === 'yes'}">Yes, structural agency</button>
+        <button type="button" data-v="no" class="notsa" aria-pressed="${ans.sa === 'no'}">No, not structural agency</button>
+      </div></div>
+    ${ans.sa === 'yes' ? `
+    <div class="rgroup"><h3>2. Domains — pick every one that applies</h3>${chiprow('dd', domains, ans.d)}</div>
+    <div class="rgroup"><h3>3. Action — what did the user ask the model to do?</h3>${chiprow('aa', actions, ans.a)}</div>` : ''}
+    <div class="rgroup"><h3>Note (optional)</h3>
+      <textarea class="svnote" id="sv-note" rows="2" placeholder="anything unclear about this item">${esc(ans.note)}</textarea></div>
+    <div class="rnav">
+      <button id="sv-back" ${SV.cursor === 0 ? 'disabled' : ''}>&larr; Back</button>
+      <button class="primary" id="sv-next" ${svDone(ans) ? '' : 'disabled'}>${SV.cursor === N - 1 ? 'Finish' : 'Next →'}</button>
+      <span class="rnote">${ans.sa === 'yes'
+        ? 'pick at least one domain and one action · <b>other</b> stands alone'
+        : 'answer question 1 first'}</span>
+    </div>
+    ${svDefsHTML(false)}
+  </div>`;
+
+  const touch = () => { ans.t = new Date().toISOString(); saveSurvey(); };
+  host.querySelectorAll('.sv-yn button').forEach((b) => b.addEventListener('click', () => {
+    ans.sa = ans.sa === b.dataset.v ? null : b.dataset.v; touch(); drawSurvey();
+  }));
+  host.querySelectorAll('.rchips.dd button').forEach((b) =>
+    b.addEventListener('click', () => { toggleLabel(ans.d, b.dataset.l); touch(); drawSurvey(); }));
+  host.querySelectorAll('.rchips.aa button').forEach((b) =>
+    b.addEventListener('click', () => { toggleLabel(ans.a, b.dataset.l); touch(); drawSurvey(); }));
+  $('#sv-note').addEventListener('input', (e) => { ans.note = e.target.value; touch(); });
+  $('#sv-back').addEventListener('click', () => { SV.cursor--; saveSurvey(); drawSurvey(); });
+  $('#sv-next').addEventListener('click', () => {
+    if (SV.cursor === N - 1) {
+      const missing = SV.items.findIndex((x) => !svDone(SV.answers.get(x.h)));
+      if (missing >= 0) SV.cursor = missing; else SV.view = 'done';
+    } else SV.cursor++;
+    saveSurvey(); drawSurvey();
+  });
+  $('#sv-export').addEventListener('click', surveyDownload);
+  $('#sv-switch').addEventListener('click', () => { saveSurvey(); SV.annotator = null; SV.view = 'intro'; drawSurvey(); });
+}
+
+function drawSurveyDone(host) {
+  const N = SV.items.length;
+  let yes = 0, no = 0;
+  const dc = new Map(), ac = new Map();
+  for (const it of SV.items) {
+    const v = SV.answers.get(it.h);
+    if (!v) continue;
+    if (v.sa === 'yes') {
+      yes++;
+      for (const l of v.d) dc.set(l, (dc.get(l) || 0) + 1);
+      for (const l of v.a) ac.set(l, (ac.get(l) || 0) + 1);
+    } else if (v.sa === 'no') no++;
+  }
+  const bars = (m) => {
+    const rows = [...m.entries()].sort((x, y) => y[1] - x[1]);
+    const max = rows.length ? rows[0][1] : 1;
+    return `<div class="bars">${rows.map(([l, n]) => `
+      <div class="bar"><span class="blabel">${esc(pretty(l))}</span>
+        <span class="btrack"><i style="width:${(n / max) * 100}%"></i></span>
+        <span class="bval">${n}</span></div>`).join('') || '<div class="empty">none</div>'}</div>`;
+  };
+  host.innerHTML = `<div class="rwrap">
+    <div class="vhead"><h2>Survey complete — ${SV.annotator}, group ${SV.group}</h2></div>
+    <p class="lede">${N} conversations labelled: <b>${yes}</b> structural agency, <b>${no}</b> not.
+      Download the CSV and send it to the study lead.</p>
+    <div class="rnav">
+      <button class="primary" id="sv-dl">Download CSV</button>
+      <button id="sv-review">&larr; Review / edit answers</button>
+      <button id="sv-switch2">Switch annotator</button>
+    </div>
+    <h3>Your domain labels</h3>${bars(dc)}
+    <h3>Your action labels</h3>${bars(ac)}
+  </div>`;
+  $('#sv-dl').addEventListener('click', surveyDownload);
+  $('#sv-review').addEventListener('click', () => { SV.view = 'item'; SV.cursor = 0; saveSurvey(); drawSurvey(); });
+  $('#sv-switch2').addEventListener('click', () => { SV.annotator = null; SV.view = 'intro'; drawSurvey(); });
+}
+
+function surveyCSV() {
+  const q = (s) => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+  const lines = ['annotator,group,item,conversation_hash,is_sa,domains,actions,note,answered_at'];
+  SV.items.forEach((it, i) => {
+    const v = SV.answers.get(it.h) || { sa: null, d: new Set(), a: new Set(), note: '', t: '' };
+    const yes = v.sa === 'yes';
+    lines.push([SV.annotator, SV.group, i + 1, it.h, v.sa || '',
+      yes ? [...v.d].join('|') : '', yes ? [...v.a].join('|') : '', q(v.note), v.t].join(','));
+  });
+  return lines.join('\n') + '\n';
+}
+
+function surveyDownload() {
+  const blob = new Blob([surveyCSV()], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `survey_${SV.annotator}_group${SV.group}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
